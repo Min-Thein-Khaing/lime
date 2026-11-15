@@ -3226,7 +3226,7 @@ dependencies = [
 
 [[package]]
 name = "lime"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "anyhow",
  "cosmic-text 0.19.0",
