@@ -78,6 +78,20 @@ Dialog commands, including Invert… and menu strokes, use ellipses. Paste has o
 menu action; Cmd/Ctrl+V and the retained Cmd/Ctrl+Shift+V image-paste alias route
 to it. Text paste retains its existing context. Fit Layer to Canvas still previews
 inside an active Scale session and applies immediately from other tools.
+Reselecting an active Scale/Rotate/Flip/Perspective tool preserves its preview;
+reselecting after Apply/Cancel starts a new session. Crop's menu Apply action is
+separate from its canvas-only Return action, so context-only keys never appear
+as native menu accelerators.
+
+Command shortcuts use Cmd on macOS and Ctrl on Windows/Linux: L opens as layers,
+Shift+L toggles the right sidebar, G toggles the grid, R toggles rulers/guides,
+B toggles the layer boundary, Shift+C crops the image to content, F fits the layer
+to canvas, I makes the layer canvas-sized, and D opens Drop Shadow. Shift+I
+inverts the selection. Repeat/Reopen Last Effect use Alt+F/Alt+Shift+F with the
+same platform primary modifier. Plain tool keys stay independent; Default Colors
+has no shortcut. The focused sidebar button consumes Enter/Space through NoAction
+bindings and dispatches from its key handler, so those local activation keys
+cannot leak into native menu accelerator hints.
 
 ## Current product scope
 
@@ -375,9 +389,9 @@ beneath the source from its blurred silhouette. A zero radius or amount does
 not create a history entry. Each adjustment/filter remembers successful parameters
 across restarts, shared across tabs; cancellation, failed/stale jobs,
 and pixel no-ops leave prior settings intact. Filters → Repeat Last Effect
-(Cmd/Ctrl+F) applies the last successful adjustment/filter to the current visible
+(Cmd/Ctrl+Alt+F) applies the last successful adjustment/filter to the current visible
 raster layer and current selection as one undoable edit. Reopen Last Effect
-(Cmd/Ctrl+Shift+F) opens its remembered parameters with preview. Typed geometry
+(Cmd/Ctrl+Alt+Shift+F) opens its remembered parameters with preview. Typed geometry
 and text resolve first; unfinished canvas previews disable these commands.
 Shadow repeat preflights the current destination and keeps the source active.
 Its dialog uses a preview beside the controls on wide windows and a stacked
@@ -575,8 +589,10 @@ document is a single plain layer without paths, guides, or editable text.
   states; checks continue after dismissal. Automatic checks only show the badge.
   About includes the compiled version, platform/architecture, source and issue
   links. Information dialogs preserve text/canvas drafts, trap Tab/Shift-Tab and
-  editor shortcuts, and restore the previous focus on Close/Escape. Stable button
-  focus slots survive asynchronous update results; long content scrolls.
+  editor shortcuts, and restore the previous focus on Close/Escape. Quit and
+  macOS Hide/Hide Others/Minimize shortcuts remain available. Explicit button IDs
+  preserve focus across asynchronous results without depending on display labels;
+  long content scrolls.
   The status bar always shows the compiled package version beside the image count
   in muted 11-point text, matching the update badge's size and padding; the update
   badge remains the rightmost item when available.

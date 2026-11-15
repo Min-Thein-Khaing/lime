@@ -45,6 +45,7 @@ actions!(
         ZoomIn,
         ZoomOut,
         ApplyCrop,
+        ApplyCropOnCanvas,
         CancelCrop,
         SelectAll,
         SelectNone,
@@ -505,20 +506,36 @@ pub(super) fn tool_disclosure_bindings() -> [KeyBinding; 2] {
     ]
 }
 
-pub fn register(cx: &mut App) {
-    cx.bind_keys(tool_disclosure_bindings());
-    cx.bind_keys([
-        KeyBinding::new("enter", ToggleRightSidebar, Some("SidebarToggle")),
-        KeyBinding::new("space", ToggleRightSidebar, Some("SidebarToggle")),
-    ]);
-    let primary = if cfg!(target_os = "macos") {
-        "cmd"
-    } else {
-        "ctrl"
-    };
-    cx.bind_keys([
+pub(super) fn sidebar_button_bindings() -> [KeyBinding; 2] {
+    // Local button activation must not become a native menu accelerator. In
+    // particular, AppKit can render GPUI's named "enter" key as an "E" hint.
+    [
+        KeyBinding::new("enter", NoAction, Some("SidebarToggle")),
+        KeyBinding::new("space", NoAction, Some("SidebarToggle")),
+    ]
+}
+
+pub(super) fn activate_sidebar_button(key: &gpui::Keystroke, activate: impl FnOnce()) -> bool {
+    if key.modifiers.modified() || !matches!(key.key.as_str(), "enter" | "space") {
+        return false;
+    }
+    activate();
+    true
+}
+
+fn workspace_bindings(primary: &str) -> Vec<KeyBinding> {
+    vec![
         KeyBinding::new(&format!("{primary}-n"), NewImage, None),
         KeyBinding::new(&format!("{primary}-o"), OpenImage, None),
+        KeyBinding::new(&format!("{primary}-l"), OpenAsLayers, None),
+        KeyBinding::new(&format!("{primary}-shift-l"), ToggleRightSidebar, None),
+        KeyBinding::new(&format!("{primary}-g"), ToggleGrid, None),
+        KeyBinding::new(&format!("{primary}-r"), ToggleGuides, None),
+        KeyBinding::new(&format!("{primary}-b"), ToggleLayerBoundary, None),
+        KeyBinding::new(&format!("{primary}-shift-c"), CropImageToContent, None),
+        KeyBinding::new(&format!("{primary}-f"), FitLayerToCanvas, None),
+        KeyBinding::new(&format!("{primary}-i"), LayerToImageSize, None),
+        KeyBinding::new(&format!("{primary}-d"), DropShadow, None),
         KeyBinding::new(&format!("{primary}-s"), SaveImage, None),
         KeyBinding::new(&format!("{primary}-shift-s"), SaveImageAs, None),
         KeyBinding::new(&format!("{primary}-="), ZoomIn, None),
@@ -528,8 +545,8 @@ pub fn register(cx: &mut App) {
         KeyBinding::new(&format!("{primary}-shift-n"), NewLayer, None),
         KeyBinding::new(&format!("{primary}-shift-d"), DuplicateLayer, None),
         KeyBinding::new(&format!("{primary}-shift-j"), Zoom::Fit, None),
-        KeyBinding::new(&format!("{primary}-f"), RepeatLastEffect, None),
-        KeyBinding::new(&format!("{primary}-shift-f"), ReopenLastEffect, None),
+        KeyBinding::new(&format!("{primary}-alt-f"), RepeatLastEffect, None),
+        KeyBinding::new(&format!("{primary}-alt-shift-f"), ReopenLastEffect, None),
         KeyBinding::new("shift-=", ZoomIn, None),
         KeyBinding::new("+", ZoomIn, None),
         KeyBinding::new("-", ZoomOut, None),
@@ -553,7 +570,7 @@ pub fn register(cx: &mut App) {
         KeyBinding::new(&format!("{primary}-shift-v"), PasteImage, None),
         KeyBinding::new(&format!("{primary}-a"), SelectAll, None),
         KeyBinding::new(&format!("{primary}-shift-a"), SelectNone, None),
-        KeyBinding::new(&format!("{primary}-i"), InvertSelection, None),
+        KeyBinding::new(&format!("{primary}-shift-i"), InvertSelection, None),
         KeyBinding::new("escape", CancelStroke, Some("Paint")),
         KeyBinding::new("enter", ApplyTransform, Some("Transform")),
         KeyBinding::new("escape", CancelTransform, Some("Transform")),
@@ -566,15 +583,25 @@ pub fn register(cx: &mut App) {
         KeyBinding::new("enter", ApplyGradient, Some("Gradient")),
         KeyBinding::new("escape", CancelGradient, Some("Gradient")),
         KeyBinding::new("x", SwapColors, None),
-        KeyBinding::new("d", ResetColors, None),
         KeyBinding::new("alt-o", ForegroundColor, None),
         KeyBinding::new("alt-shift-o", BackgroundColor, None),
-        KeyBinding::new("enter", ApplyCrop, Some("Crop")),
+        KeyBinding::new("enter", ApplyCropOnCanvas, Some("Crop")),
         KeyBinding::new("escape", CancelCrop, Some("Crop")),
         KeyBinding::new(&format!("{primary}-w"), CloseTab, None),
         KeyBinding::new("ctrl-tab", NextTab, None),
         KeyBinding::new("ctrl-shift-tab", PreviousTab, None),
-    ]);
+    ]
+}
+
+pub fn register(cx: &mut App) {
+    cx.bind_keys(tool_disclosure_bindings());
+    cx.bind_keys(sidebar_button_bindings());
+    let primary = if cfg!(target_os = "macos") {
+        "cmd"
+    } else {
+        "ctrl"
+    };
+    cx.bind_keys(workspace_bindings(primary));
     if cfg!(target_os = "macos") {
         cx.bind_keys([
             KeyBinding::new("cmd-z", Undo, None),
@@ -591,7 +618,7 @@ pub fn register(cx: &mut App) {
             KeyBinding::new("ctrl-q", Quit, None),
         ]);
     }
-    bind_tool_shortcuts(cx);
+    cx.bind_keys(tool_bindings());
     // A NoAction here is higher than the global tool letters, so key_down can type them.
     cx.bind_keys([
         KeyBinding::new("m", NoAction, Some("Text")),
@@ -609,7 +636,6 @@ pub fn register(cx: &mut App) {
         KeyBinding::new("z", NoAction, Some("Text")),
         KeyBinding::new("k", NoAction, Some("Text")),
         KeyBinding::new("x", NoAction, Some("Text")),
-        KeyBinding::new("d", NoAction, Some("Text")),
         KeyBinding::new("shift-r", NoAction, Some("Text")),
         KeyBinding::new("shift-f", NoAction, Some("Text")),
         KeyBinding::new("shift-p", NoAction, Some("Text")),
@@ -689,15 +715,15 @@ pub fn register(cx: &mut App) {
     crate::macos::set_menu_icons();
 }
 
-fn bind_tool_shortcuts(cx: &mut App) {
-    for (_, tools) in TOOL_GROUPS {
-        for tool in *tools {
-            let Some(key) = tool.shortcut() else {
-                continue;
-            };
-            cx.bind_keys([KeyBinding::new(key, SelectTool(*tool), None)]);
-        }
-    }
+fn tool_bindings() -> Vec<KeyBinding> {
+    TOOL_GROUPS
+        .iter()
+        .flat_map(|(_, tools)| *tools)
+        .filter_map(|tool| {
+            tool.shortcut()
+                .map(|key| KeyBinding::new(key, SelectTool(*tool), None))
+        })
+        .collect()
 }
 
 pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
@@ -1007,6 +1033,168 @@ fn tool(tool: Tool) -> MenuItem {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn command_shortcuts_have_unique_targets_and_leave_tool_letters_independent() {
+        use gpui::{KeyContext, Keymap, Keystroke};
+        let expected: Vec<(&str, Box<dyn Action>)> = vec![
+            ("l", Box::new(OpenAsLayers)),
+            ("shift-l", Box::new(ToggleRightSidebar)),
+            ("g", Box::new(ToggleGrid)),
+            ("r", Box::new(ToggleGuides)),
+            ("b", Box::new(ToggleLayerBoundary)),
+            ("shift-c", Box::new(CropImageToContent)),
+            ("f", Box::new(FitLayerToCanvas)),
+            ("i", Box::new(LayerToImageSize)),
+            ("d", Box::new(DropShadow)),
+            ("shift-i", Box::new(InvertSelection)),
+            ("alt-f", Box::new(RepeatLastEffect)),
+            ("alt-shift-f", Box::new(ReopenLastEffect)),
+        ];
+        let contexts = [KeyContext::parse("Workspace").unwrap()];
+        for primary in ["cmd", "ctrl"] {
+            let mut bindings = workspace_bindings(primary);
+            bindings.extend(tool_bindings());
+            bindings.extend(sidebar_button_bindings());
+            let mut keys = std::collections::HashSet::new();
+            for binding in bindings
+                .iter()
+                .filter(|binding| binding.predicate().is_none())
+            {
+                let chord = binding
+                    .keystrokes()
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                assert!(
+                    keys.insert(chord.clone()),
+                    "duplicate global shortcut: {chord}"
+                );
+            }
+            let keymap = Keymap::new(bindings);
+            for (suffix, action) in &expected {
+                let input = [Keystroke::parse(&format!("{primary}-{suffix}")).unwrap()];
+                let (matches, pending) = keymap.bindings_for_input(&input, &contexts);
+                assert!(!pending);
+                assert_eq!(matches.len(), 1);
+                assert!(
+                    matches[0].action().partial_eq(action.as_ref()),
+                    "wrong target for {primary}-{suffix}"
+                );
+            }
+            for (key, tool) in [
+                ("e", Tool::Eraser),
+                ("g", Tool::Gradient),
+                ("r", Tool::Select),
+                ("b", Tool::BucketFill),
+                ("f", Tool::FreeSelect),
+                ("shift-c", Tool::CloneStamp),
+            ] {
+                let input = [Keystroke::parse(key).unwrap()];
+                let (matches, _) = keymap.bindings_for_input(&input, &contexts);
+                assert!(matches[0].action().partial_eq(&SelectTool(tool)));
+            }
+            assert_eq!(keymap.bindings_for_action(&ResetColors).count(), 0);
+            assert!(
+                keymap
+                    .bindings_for_input(&[Keystroke::parse("d").unwrap()], &contexts)
+                    .0
+                    .is_empty()
+            );
+            assert!(
+                keymap
+                    .bindings_for_action(&ToggleRightSidebar)
+                    .all(|binding| binding.predicate().is_none())
+            );
+        }
+    }
+
+    #[test]
+    fn sidebar_button_activation_does_not_apply_a_canvas_preview_or_leak_a_menu_shortcut() {
+        use gpui::{KeyContext, Keymap, Keystroke};
+        for tool_context in ["ScaleLayer", "Transform", "Gradient", "Crop", "FreeSelect"] {
+            let mut bindings = sidebar_button_bindings().to_vec();
+            bindings.extend(workspace_bindings("cmd"));
+            let keymap = Keymap::new(bindings);
+            let contexts = [
+                KeyContext::parse(tool_context).unwrap(),
+                KeyContext::parse("SidebarToggle").unwrap(),
+            ];
+            for key in ["enter", "space"] {
+                let (matches, pending) =
+                    keymap.bindings_for_input(&[Keystroke::parse(key).unwrap()], &contexts);
+                assert!(!pending);
+                // GPUI removes NoAction and the inherited actions it masks;
+                // the button's key listener receives the raw key instead.
+                assert!(matches.is_empty());
+                let mut dispatches = 0;
+                let mut folded = false;
+                assert!(activate_sidebar_button(
+                    &Keystroke::parse(key).unwrap(),
+                    || {
+                        dispatches += 1;
+                        folded = !folded;
+                    }
+                ));
+                assert_eq!(dispatches, 1);
+                assert!(folded);
+            }
+            for key in ["e", "cmd-enter", "shift-space"] {
+                let mut dispatches = 0;
+                assert!(!activate_sidebar_button(
+                    &Keystroke::parse(key).unwrap(),
+                    || dispatches += 1
+                ));
+                assert_eq!(dispatches, 0);
+            }
+            let canvas = &contexts[..1];
+            assert!(
+                !keymap
+                    .bindings_for_input(&[Keystroke::parse("enter").unwrap()], canvas)
+                    .0
+                    .is_empty()
+            );
+        }
+    }
+
+    #[test]
+    fn native_menu_actions_never_publish_context_only_keyboard_bindings() {
+        use gpui::{KeyContext, Keymap, Keystroke};
+        fn check(menu: &Menu, keymap: &Keymap) {
+            for item in &menu.items {
+                match item {
+                    MenuItem::Action { name, action, .. } => assert!(
+                        keymap
+                            .bindings_for_action(action.as_ref())
+                            .all(|binding| binding.predicate().is_none()),
+                        "context-only accelerator leaked for {name}"
+                    ),
+                    MenuItem::Submenu(menu) => check(menu, keymap),
+                    _ => {}
+                }
+            }
+        }
+        for primary in ["cmd", "ctrl"] {
+            let mut bindings = workspace_bindings(primary);
+            bindings.extend(tool_bindings());
+            bindings.extend(tool_disclosure_bindings());
+            bindings.extend(sidebar_button_bindings());
+            let keymap = Keymap::new(bindings);
+            for macos in [true, false] {
+                for menu in application_menus(macos) {
+                    check(&menu, &keymap);
+                }
+            }
+            assert_eq!(keymap.bindings_for_action(&ApplyCrop).count(), 0);
+            let (matches, pending) = keymap.bindings_for_input(
+                &[Keystroke::parse("enter").unwrap()],
+                &[KeyContext::parse("Crop").unwrap()],
+            );
+            assert!(!pending);
+            assert!(matches[0].action().as_any().is::<ApplyCropOnCanvas>());
+        }
+    }
 
     #[test]
     fn focused_tool_disclosures_take_return_and_space_before_canvas_actions() {

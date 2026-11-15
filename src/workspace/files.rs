@@ -63,6 +63,10 @@ pub(super) enum ExportFormat {
 }
 
 impl ExportFormat {
+    fn destination(self, selected: Option<PathBuf>) -> Result<Option<PathBuf>> {
+        selected.map(|path| prepare_export(&path, self)).transpose()
+    }
+
     fn extension(self) -> &'static str {
         match self {
             Self::Raster { format, .. } => format.extension(),
@@ -79,6 +83,27 @@ impl ExportFormat {
 }
 
 impl WriteKind {
+    fn write(self, content: &crate::document::DocumentContent, path: &Path) -> Result<()> {
+        match self {
+            Self::Save(format) => save_image(content, path, format),
+            Self::Export(ExportFormat::Raster {
+                format,
+                jpeg_quality,
+            }) => export_image(content, path, format, jpeg_quality),
+            Self::Export(ExportFormat::Pdf { dpi }) => export_pdf(content, path, dpi),
+        }
+    }
+
+    fn remember_completed_export(
+        self,
+        result: &Result<()>,
+        preferences: &mut super::settings_ui::Preferences,
+    ) {
+        if let (Self::Export(format), Ok(())) = (self, result) {
+            preferences.remember_export(format);
+        }
+    }
+
     fn destination_reserved(self, source_tab: bool, open: bool, writing: bool) -> bool {
         writing || (open && (!source_tab || matches!(self, Self::Export(_))))
     }
@@ -262,6 +287,7 @@ impl Workspace {
         };
         let suggested = suggested_name(document, preferred);
         self.prompt_destination(suggested, window, cx, move |workspace, path, window, cx| {
+            let Some(path) = path else { return };
             match prepare_destination(&path, project_only) {
                 Ok((path, format)) => {
                     workspace.write_file(id, path, WriteKind::Save(format), window, cx)
@@ -303,17 +329,23 @@ impl Workspace {
                 .unwrap_or(&suggested);
             suggested = format!("{stem}-export.{}", format.extension());
         }
-        self.prompt_destination(suggested, window, cx, move |workspace, path, window, cx| {
-            match prepare_export(&path, format) {
-                Ok(path) => {
-                    let kind = WriteKind::Export(format);
-                    workspace.write_file(id, path, kind, window, cx)
+        self.prompt_destination(
+            suggested,
+            window,
+            cx,
+            move |workspace, selected, window, cx| {
+                let name = selected.as_deref().map(file_name).unwrap_or_default();
+                match format.destination(selected) {
+                    Ok(Some(path)) => {
+                        workspace.write_file(id, path, WriteKind::Export(format), window, cx)
+                    }
+                    Ok(None) => {} // Canceled destination: no write and no remembered options.
+                    Err(error) => workspace
+                        .errors
+                        .push(format!("Could not export {name}: {error}")),
                 }
-                Err(error) => workspace
-                    .errors
-                    .push(format!("Could not export {}: {error}", file_name(&path))),
-            }
-        });
+            },
+        );
     }
 
     fn prompt_destination(
@@ -321,7 +353,7 @@ impl Workspace {
         suggested: String,
         window: &mut Window,
         cx: &mut Context<Self>,
-        on_path: impl FnOnce(&mut Self, PathBuf, &mut Window, &mut Context<Self>) + 'static,
+        on_path: impl FnOnce(&mut Self, Option<PathBuf>, &mut Window, &mut Context<Self>) + 'static,
     ) {
         let Some(document) = self.active_document() else {
             return;
@@ -340,8 +372,7 @@ impl Workspace {
             let _ = workspace.update_in(cx, |workspace, window, cx| {
                 workspace.dialog_open = false;
                 match result {
-                    Ok(Ok(Some(path))) => on_path(workspace, path, window, cx),
-                    Ok(Ok(None)) => {}
+                    Ok(Ok(selected)) => on_path(workspace, selected, window, cx),
                     Ok(Err(error)) => workspace
                         .errors
                         .push(format!("Could not open the save dialog: {error}")),
@@ -400,14 +431,7 @@ impl Workspace {
         let revision = tab.history.revision();
         let content = tab.document.content.clone();
         let job = cx.background_executor().spawn(async move {
-            let result = match kind {
-                WriteKind::Save(format) => save_image(&content, &path, format),
-                WriteKind::Export(ExportFormat::Raster {
-                    format,
-                    jpeg_quality,
-                }) => export_image(&content, &path, format, jpeg_quality),
-                WriteKind::Export(ExportFormat::Pdf { dpi }) => export_pdf(&content, &path, dpi),
-            };
+            let result = kind.write(&content, &path);
             (path, result)
         });
         cx.spawn_in(window, async move |workspace, cx| {
@@ -416,6 +440,7 @@ impl Workspace {
                 let Some(index) = workspace.tab_index(id) else {
                     return;
                 };
+                kind.remember_completed_export(&result, &mut workspace.preferences);
                 let tab = &mut workspace.tabs[index];
                 tab.saving = None;
                 tab.exporting = false;
@@ -429,9 +454,8 @@ impl Workspace {
                         tab.history.mark_saved(revision);
                         workspace.update_title(window);
                     }
-                    (WriteKind::Export(format), Ok(())) => {
+                    (WriteKind::Export(_), Ok(())) => {
                         tab.notice = Some(format!("Exported {name}"));
-                        workspace.preferences.remember_export(format);
                     }
                     (WriteKind::Save(_), Err(error)) => workspace
                         .errors
@@ -645,6 +669,66 @@ fn canonical_destination(path: &Path) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn canceled_rejected_failed_and_successful_export_events_use_the_real_write_flow() {
+        use super::super::settings_ui::Preferences;
+        let directory = tempfile::tempdir().unwrap();
+        let tab = super::super::tests::opacity_tab();
+        let revision = tab.history.revision();
+        let pixels = tab.document.content.composite();
+        let mut preferences = Preferences::default();
+        let original = preferences.clone();
+        let format = ExportFormat::Raster {
+            format: FileFormat::Jpeg,
+            jpeg_quality: 81,
+        };
+        let kind = WriteKind::Export(format);
+
+        // The native chooser's canceled result reaches this same destination route.
+        assert!(format.destination(None).unwrap().is_none());
+        assert!(preferences == original);
+        assert!(
+            format
+                .destination(Some(directory.path().join("wrong.png")))
+                .is_err()
+        );
+        assert!(preferences == original);
+
+        // A directory with the right suffix passes destination validation, then
+        // makes the atomic writer fail deterministically on every host platform.
+        let blocked = directory.path().join("blocked.jpeg");
+        std::fs::create_dir(&blocked).unwrap();
+        let path = format.destination(Some(blocked.clone())).unwrap().unwrap();
+        let failed = kind.write(&tab.document.content, &path);
+        assert!(failed.is_err());
+        kind.remember_completed_export(&failed, &mut preferences);
+        assert!(preferences == original);
+        assert!(blocked.is_dir());
+
+        let path = format
+            .destination(Some(directory.path().join("image.jpeg")))
+            .unwrap()
+            .unwrap();
+        let succeeded = kind.write(&tab.document.content, &path);
+        succeeded.as_ref().unwrap();
+        kind.remember_completed_export(&succeeded, &mut preferences);
+        assert_eq!(preferences.export_type, ExportType::Jpeg);
+        assert_eq!(preferences.jpeg_quality, 81);
+        assert_eq!(
+            Document::open(&path).unwrap().content.size(),
+            tab.document.content.size()
+        );
+        assert_eq!(tab.history.revision(), revision);
+        assert_eq!(tab.document.content.composite(), pixels);
+
+        let settings_path = directory.path().join("settings.json");
+        let mut patch = crate::settings::Patch::default();
+        patch.record(&original, &preferences).unwrap();
+        crate::settings::save::<Preferences>(&settings_path, &patch).unwrap();
+        let restored = crate::settings::load::<Preferences>(&settings_path).unwrap();
+        assert!(restored.preferences == preferences);
+    }
 
     #[test]
     fn raster_save_rechecks_content_that_changed_while_the_dialog_was_open() {

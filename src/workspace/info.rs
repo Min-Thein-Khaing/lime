@@ -20,7 +20,7 @@ pub(super) enum InfoKind {
 pub(super) struct InfoDialog {
     kind: InfoKind,
     pub(super) prior_focus: Option<FocusHandle>,
-    buttons: [FocusHandle; 4],
+    buttons: [FocusHandle; InfoButtonId::COUNT],
 }
 
 #[derive(Clone)]
@@ -30,13 +30,35 @@ enum InfoAction {
     Check,
 }
 
-// Stable slots keep Close focused when a completed check inserts new links.
-fn button_slot(label: &str, action: &InfoAction) -> usize {
-    match action {
-        InfoAction::Close => 0,
-        InfoAction::Check => 3,
-        InfoAction::Link(_) if matches!(label, "Source code ↗" | "View changelog ↗") => 1,
-        InfoAction::Link(_) => 2,
+// Identity follows the control, independent of wording and asynchronous results.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(usize)]
+enum InfoButtonId {
+    Close,
+    Source,
+    Issues,
+    Changelog,
+    Download,
+    Releases,
+    Check,
+}
+
+impl InfoButtonId {
+    const COUNT: usize = 7;
+    fn slot(self) -> usize {
+        self as usize
+    }
+}
+
+struct InfoButton {
+    id: InfoButtonId,
+    label: &'static str,
+    action: InfoAction,
+}
+
+impl InfoButton {
+    fn new(id: InfoButtonId, label: &'static str, action: InfoAction) -> Self {
+        Self { id, label, action }
     }
 }
 
@@ -44,7 +66,7 @@ struct Content {
     title: String,
     detail: String,
     notes: Vec<String>,
-    actions: Vec<(&'static str, InfoAction)>,
+    buttons: Vec<InfoButton>,
 }
 
 fn content(kind: InfoKind, state: &UpdateState) -> Content {
@@ -69,23 +91,36 @@ fn content(kind: InfoKind, state: &UpdateState) -> Content {
                     other => other,
                 }
             )],
-            actions: vec![
-                ("Source code ↗", InfoAction::Link(SOURCE.into())),
-                ("Report an issue ↗", InfoAction::Link(ISSUES.into())),
-                ("Close", InfoAction::Close),
+            buttons: vec![
+                InfoButton::new(
+                    InfoButtonId::Source,
+                    "Source code ↗",
+                    InfoAction::Link(SOURCE.into()),
+                ),
+                InfoButton::new(
+                    InfoButtonId::Issues,
+                    "Report an issue ↗",
+                    InfoAction::Link(ISSUES.into()),
+                ),
+                InfoButton::new(InfoButtonId::Close, "Close", InfoAction::Close),
             ],
         };
     }
     let mut notes = Vec::new();
-    let mut actions = Vec::new();
+    let mut buttons = Vec::new();
     let (title, detail) = if let Some(update) = &state.available {
-        actions.push((
+        buttons.push(InfoButton::new(
+            InfoButtonId::Changelog,
             "View changelog ↗",
             InfoAction::Link(update.changelog.clone()),
         ));
         if let Some(url) = &update.download {
             // The same wording covers every supported architecture and platform.
-            actions.push(("Download ↗", InfoAction::Link(url.clone())));
+            buttons.push(InfoButton::new(
+                InfoButtonId::Download,
+                "Download ↗",
+                InfoAction::Link(url.clone()),
+            ));
         } else {
             notes.push("A download for your platform hasn't been published yet.".into());
         }
@@ -115,7 +150,11 @@ fn content(kind: InfoKind, state: &UpdateState) -> Content {
             ),
         )
     } else if matches!(state.status, CheckStatus::Failed) {
-        actions.push(("Releases ↗", InfoAction::Link(updates::RELEASES.into())));
+        buttons.push(InfoButton::new(
+            InfoButtonId::Releases,
+            "Releases ↗",
+            InfoAction::Link(updates::RELEASES.into()),
+        ));
         (
             "Couldn't check for updates".into(),
             "Check your internet connection and try again, or browse the releases on GitHub."
@@ -128,14 +167,40 @@ fn content(kind: InfoKind, state: &UpdateState) -> Content {
         )
     };
     if !state.checking {
-        actions.push(("Check again", InfoAction::Check));
+        buttons.push(InfoButton::new(
+            InfoButtonId::Check,
+            "Check again",
+            InfoAction::Check,
+        ));
     }
-    actions.push(("Close", InfoAction::Close));
+    buttons.push(InfoButton::new(
+        InfoButtonId::Close,
+        "Close",
+        InfoAction::Close,
+    ));
     Content {
         title,
         detail,
         notes,
-        actions,
+        buttons,
+    }
+}
+
+fn allows_application_shortcut(key: &Keystroke, macos: bool) -> bool {
+    let modifiers = &key.modifiers;
+    if modifiers.shift {
+        return false;
+    }
+    if macos {
+        modifiers.platform
+            && !modifiers.control
+            && match key.key.as_str() {
+                "q" | "m" => !modifiers.alt,
+                "h" => true, // Hide and Hide Others.
+                _ => false,
+            }
+    } else {
+        modifiers.control && !modifiers.platform && !modifiers.alt && key.key == "q"
     }
 }
 
@@ -208,20 +273,22 @@ impl Workspace {
         let FormKind::Info(info) = &form.kind else {
             return false;
         };
-        let actions = content(info.kind, cx.global::<UpdateState>()).actions;
-        let selected = actions.iter().position(|(label, action)| {
-            info.buttons[button_slot(label, action)].is_focused(window)
-        });
+        if allows_application_shortcut(key, cfg!(target_os = "macos")) {
+            return false;
+        }
+        let buttons = content(info.kind, cx.global::<UpdateState>()).buttons;
+        let selected = buttons
+            .iter()
+            .position(|button| info.buttons[button.id.slot()].is_focused(window));
         match key.key.as_str() {
             "escape" => self.dismiss_form(window, cx),
             "tab" => {
-                let index = next_button(selected, actions.len(), key.modifiers.shift);
-                let (label, action) = &actions[index];
-                info.buttons[button_slot(label, action)].focus(window);
+                let index = next_button(selected, buttons.len(), key.modifiers.shift);
+                info.buttons[buttons[index].id.slot()].focus(window);
             }
             "enter" | "space" if !key.modifiers.modified() => {
-                let index = selected.unwrap_or(actions.len() - 1);
-                self.information_action(actions[index].1.clone(), window, cx);
+                let index = selected.unwrap_or(buttons.len() - 1);
+                self.information_action(buttons[index].action.clone(), window, cx);
             }
             _ => {}
         }
@@ -279,9 +346,10 @@ impl Workspace {
                         }),
                     )
                     .child(div().flex().flex_wrap().gap_2().mt_2().children(
-                        content.actions.into_iter().map(|(label, action)| {
-                            let close = matches!(action, InfoAction::Close);
-                            let slot = button_slot(label, &action);
+                        content.buttons.into_iter().map(|button| {
+                            let close = button.id == InfoButtonId::Close;
+                            let slot = button.id.slot();
+                            let InfoButton { label, action, .. } = button;
                             div()
                                 .id(("information-button", slot))
                                 .track_focus(&info.buttons[slot])
@@ -320,6 +388,70 @@ mod tests {
     use super::*;
 
     #[test]
+    fn information_dialog_allows_app_shortcuts_but_keeps_editing_shortcuts_blocked() {
+        for (macos, allowed) in [
+            (true, vec!["cmd-q", "cmd-h", "cmd-alt-h", "cmd-m"]),
+            (false, vec!["ctrl-q"]),
+        ] {
+            for key in allowed {
+                assert!(allows_application_shortcut(
+                    &Keystroke::parse(key).unwrap(),
+                    macos
+                ));
+            }
+            for key in [
+                "cmd-s",
+                "ctrl-s",
+                "cmd-d",
+                "ctrl-f",
+                "q",
+                "ctrl-alt-q",
+                "cmd-shift-q",
+            ] {
+                assert!(!allows_application_shortcut(
+                    &Keystroke::parse(key).unwrap(),
+                    macos
+                ));
+            }
+        }
+    }
+
+    #[test]
+    fn button_identity_survives_copy_changes_and_async_state_transitions() {
+        let mut button = InfoButton::new(
+            InfoButtonId::Source,
+            "Source code ↗",
+            InfoAction::Link(SOURCE.into()),
+        );
+        let slot = button.id.slot();
+        button.label = "Browse project";
+        assert_eq!(button.id.slot(), slot);
+        let mut state = UpdateState {
+            checking: true,
+            ..Default::default()
+        };
+        let before = content(InfoKind::Updates, &state)
+            .buttons
+            .into_iter()
+            .find(|button| button.id == InfoButtonId::Close)
+            .unwrap()
+            .id;
+        state.checking = false;
+        state.available = Some(updates::Available {
+            version: "99.0.0".into(),
+            changelog: SOURCE.into(),
+            download: Some(SOURCE.into()),
+        });
+        let after = content(InfoKind::Updates, &state)
+            .buttons
+            .into_iter()
+            .find(|button| button.id == InfoButtonId::Close)
+            .unwrap()
+            .id;
+        assert_eq!(before, after);
+    }
+
+    #[test]
     fn modal_focus_wraps_within_its_controls() {
         assert_eq!(next_button(None, 3, false), 0);
         assert_eq!(next_button(None, 3, true), 2);
@@ -353,37 +485,37 @@ mod tests {
         );
         assert!(
             !failed
-                .actions
+                .buttons
                 .iter()
-                .any(|(label, _)| *label == "Download ↗")
+                .any(|button| button.id == InfoButtonId::Download)
         );
         state.available.as_mut().unwrap().download = Some(SOURCE.into());
         state.checking = true;
         let checking = content(InfoKind::Updates, &state);
-        assert!(checking.actions.len() <= 4);
+        assert!(checking.buttons.len() <= InfoButtonId::COUNT);
         for panel in [&failed, &checking] {
             let slots: Vec<_> = panel
-                .actions
+                .buttons
                 .iter()
-                .map(|(label, action)| button_slot(label, action))
+                .map(|button| button.id.slot())
                 .collect();
             assert_eq!(
                 slots.len(),
                 slots.iter().collect::<std::collections::HashSet<_>>().len()
             );
-            assert_eq!(*slots.last().unwrap(), 0); // Close never moves when state changes.
+            assert_eq!(*slots.last().unwrap(), InfoButtonId::Close.slot()); // Close never moves when state changes.
         }
         assert!(
             checking
-                .actions
+                .buttons
                 .iter()
-                .any(|(label, _)| *label == "Download ↗")
+                .any(|button| button.id == InfoButtonId::Download)
         );
         assert!(
             !checking
-                .actions
+                .buttons
                 .iter()
-                .any(|(_, action)| matches!(action, InfoAction::Check))
+                .any(|button| matches!(button.action, InfoAction::Check))
         );
     }
 }

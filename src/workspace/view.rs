@@ -13,15 +13,15 @@ use gpui::{
 };
 
 use crate::commands::{
-    AlignLayer, ApplyCrop, ApplyGradient, ApplyTransform, BackgroundColor, BrushSizeDown,
-    BrushSizeUp, CancelCrop, CancelFreeSelect, CancelGradient, CancelMove, CancelPath,
-    CancelStroke, CancelTransform, CloseFreeSelect, ClosePath, CloseTab, DeletePathAnchor,
-    ExportImage, FeatherSelection, ForegroundColor, GrowSelection, InvertSelection, MinimizeWindow,
-    NEW_HINT, NewImage, NextTab, NudgeLayer, OPEN_HINT, OpenImage, PreviousTab, Redo, ResetColors,
-    ResetCurrentTool, SaveImage, SaveImageAs, SaveProjectAs, SelectNone, SelectTool,
-    ShrinkSelection, SwapColors, TOOL_GROUPS, ToggleGrid, ToggleGuides, ToggleLayerBoundary,
-    ToggleRightSidebar, ToggleSnapGrid, ToggleSnapGuides, ToggleToolOptions, Tool, Undo, Zoom,
-    ZoomIn, ZoomOut, ZoomWindow,
+    AlignLayer, ApplyCrop, ApplyCropOnCanvas, ApplyGradient, ApplyTransform, BackgroundColor,
+    BrushSizeDown, BrushSizeUp, CancelCrop, CancelFreeSelect, CancelGradient, CancelMove,
+    CancelPath, CancelStroke, CancelTransform, CloseFreeSelect, ClosePath, CloseTab,
+    DeletePathAnchor, ExportImage, FeatherSelection, ForegroundColor, GrowSelection,
+    InvertSelection, MinimizeWindow, NEW_HINT, NewImage, NextTab, NudgeLayer, OPEN_HINT, OpenImage,
+    PreviousTab, Redo, ResetColors, ResetCurrentTool, SaveImage, SaveImageAs, SaveProjectAs,
+    SelectNone, SelectTool, ShrinkSelection, SwapColors, TOOL_GROUPS, ToggleGrid, ToggleGuides,
+    ToggleLayerBoundary, ToggleRightSidebar, ToggleSnapGrid, ToggleSnapGuides, ToggleToolOptions,
+    Tool, Undo, Zoom, ZoomIn, ZoomOut, ZoomWindow,
 };
 use crate::document::{CropRect, DrawnTile};
 use crate::preview;
@@ -198,12 +198,12 @@ impl Render for Workspace {
                         this.cancel_scale(window, cx);
                         this.cancel_path_gesture(cx);
                     }
-                    if changed
-                        || matches!(
-                            tool,
-                            Tool::ScaleLayer | Tool::Rotate | Tool::Flip | Tool::Perspective
-                        )
-                    {
+                    if super::transform_ui::should_begin_tool_preview(
+                        changed,
+                        tool,
+                        this.scale_drag.is_some(),
+                        this.warp.is_some(),
+                    ) {
                         this.cancel_warp(window, cx);
                         this.begin_layer_transform_preview(window, cx);
                     }
@@ -268,6 +268,11 @@ impl Render for Workspace {
                                 root.on_action(cx.listener(|this, _: &ApplyCrop, window, cx| {
                                     this.apply_crop(window, cx)
                                 }))
+                                .on_action(cx.listener(
+                                    |this, _: &ApplyCropOnCanvas, window, cx| {
+                                        this.apply_crop(window, cx)
+                                    },
+                                ))
                             })
                             .on_action(cx.listener(|this, _: &CancelCrop, _, cx| {
                                 this.clear_crop();
@@ -2567,6 +2572,13 @@ impl Workspace {
         }))
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleRightSidebar), cx))
+        .on_key_down(|event, window, cx| {
+            if crate::commands::activate_sidebar_button(&event.keystroke, || {
+                window.dispatch_action(Box::new(ToggleRightSidebar), cx);
+            }) {
+                cx.stop_propagation();
+            }
+        })
     }
 
     fn inspector_tabs(&self, cx: &Context<Self>) -> Div {

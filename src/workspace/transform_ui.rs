@@ -14,6 +14,21 @@ use crate::preview::{Dirty, PixelRect};
 use crate::selection::Selection;
 use crate::transform::{self, ColorMode, Mirror, Resample, Turn, Warp, WarpError};
 
+// Reselecting an active transform is a no-op; a dismissed session can restart.
+pub(super) fn should_begin_tool_preview(
+    changed: bool,
+    tool: Tool,
+    scale_active: bool,
+    warp_active: bool,
+) -> bool {
+    changed
+        || match tool {
+            Tool::ScaleLayer => !scale_active,
+            Tool::Rotate | Tool::Flip | Tool::Perspective => !warp_active,
+            _ => false,
+        }
+}
+
 impl Workspace {
     pub(super) fn bind_transform_actions(&self, root: Div, cx: &Context<Self>) -> Div {
         if !self.transform_enabled() {
@@ -1335,6 +1350,21 @@ fn drop_preview(preview: WarpPreview, window: &mut Window, cx: &mut Context<Work
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn reselecting_a_live_transform_preserves_it_but_dismissed_or_changed_tools_restart() {
+        for tool in [
+            Tool::ScaleLayer,
+            Tool::Rotate,
+            Tool::Flip,
+            Tool::Perspective,
+        ] {
+            assert!(!should_begin_tool_preview(false, tool, true, true));
+            assert!(should_begin_tool_preview(false, tool, false, false));
+            assert!(should_begin_tool_preview(true, tool, true, true));
+        }
+        assert!(!should_begin_tool_preview(false, Tool::Move, false, false));
+    }
+
     use super::*;
 
     #[test]
