@@ -64,6 +64,7 @@ pub(crate) fn for_action(action: &dyn Action) -> Option<&'static str> {
         SwapColors => "swap",
         RepeatLastEffect => "redo", ReopenLastEffect => "redo",
         ResetCurrentTool => "reset", ResetAllTools => "reset",
+        ToggleRightSidebar => "sidebar-right-open",
     }
     None
 }

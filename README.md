@@ -43,6 +43,8 @@ Windows downloads are unsigned. The macOS app is ad hoc signed and not notarized
 
 Open an image or PDF, or create a new image. Choose a tool and adjust its options
 beside the canvas. Hover the **?** for gestures and shortcuts.
+Collapse the entire right sidebar with its header button or **View → Toggle Right Sidebar**
+to give the canvas more room; use the button on the narrow right rail to reopen it.
 Fold secondary option sections with the mouse or keyboard to leave more room for Layers and Paths;
 their headers summarize active settings. Oval Select uses **1:1** for circles.
 Aspect-ratio choices also reshape the current selection or crop box.

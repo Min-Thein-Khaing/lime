@@ -141,6 +141,12 @@ impl AssetSource for Icons {
             "sidebar-open" => {
                 r#"<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16m4-4 3-4-3-4"/>"#
             }
+            "sidebar-right-close" => {
+                r#"<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16M7 8l4 4-4 4"/>"#
+            }
+            "sidebar-right-open" => {
+                r#"<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16M11 8l-4 4 4 4"/>"#
+            }
             "plus" => r#"<path d="M12 5v14M5 12h14"/>"#,
             "info" => r#"<circle cx="12" cy="12" r="9"/><path d="M12 11v5m0-8h.01"/>"#,
             "help" => {

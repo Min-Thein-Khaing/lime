@@ -298,6 +298,7 @@ mod tests {
             "show_guides",
             "show_layer_bounds",
             "inspector_tab",
+            "inspector_folded",
             "toolbox_width",
             "toolbox_folded",
             "move_snapping_expanded",

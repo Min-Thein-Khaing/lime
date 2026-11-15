@@ -8,6 +8,13 @@ app menu. Windows and Linux use File → Exit. The product
 takes cues from GIMP, with native menus, a docked, resizable, and foldable
 toolbox, a Layers panel, and a tabbed canvas. File commands belong in the menu.
 The workspace favors canvas space and has no top toolbar.
+The right sidebar (Tool Options and Layers/Paths together) can be collapsed at
+any window size through its header or View → Toggle Right Sidebar. A 36-point
+rail retains a reopen button. Folding is a persistent personal layout choice;
+it finishes numeric edits normally, preserves canvas/text drafts, and retains
+the selected inspector tab and each panel's session scroll position. Enter/Space
+on the focused toggle use a dedicated key context before canvas Apply bindings.
+The minimum window remains 800 × 520; smaller window-manager tiles are best effort.
 Windows has been manually reviewed by the maintainer and approved for release. A Windows-only `muda` adapter builds a native menu bar from the
 shared GPUI menu tree, and `.github/workflows/windows.yml` produces an x64
 portable ZIP. Releases distribute the EXE without an installer or file
@@ -917,6 +924,8 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   Tool options use their natural height up to half the inspector,
   scrolling independently from Layers/Paths in the remaining space.
   The right inspector is 272 px wide to accommodate visible per-row lock controls.
+  Folding the entire inspector replaces it with a 36-point reopen rail. Workspace
+  scroll handles retain Tool Options, Layers, and Paths offsets across folding.
   The resizable toolbox starts at the same total width, sharing the inspector
   constant. Its outer container owns that width; the resize grip overlays its
   inside edge instead of adding a separate layout column.
@@ -947,7 +956,7 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   sampling, Clone flags, Scale lock/anchor/resampling, the current gradient and
   library selection/disclosure, text defaults, Path handle/stroke choices,
   successful effect parameters/last effect, PDF/JPEG preferences, overlays,
-  snapping, active tool, inspector tab, and toolbox width/folding. Named gradients
+  snapping, active tool, inspector tab/folding, and toolbox width/folding. Named gradients
   stay in their separate library. Effect job order, pending document contexts,
   selection masks, document coordinates, and transform drafts are never saved.
   Settings load/save uses background jobs and 250 ms coalescing. Early/in-flight

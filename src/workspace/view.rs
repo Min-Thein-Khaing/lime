@@ -20,8 +20,8 @@ use crate::commands::{
     InvertSelection, MinimizeWindow, NEW_HINT, NewImage, NextTab, NudgeLayer, OPEN_HINT, OpenImage,
     PreviousTab, Redo, ResetColors, ResetCurrentTool, SaveImage, SaveImageAs, SaveProjectAs,
     SelectNone, SelectTool, ShrinkSelection, SwapColors, TOOL_GROUPS, ToggleGrid, ToggleGuides,
-    ToggleLayerBoundary, ToggleSnapGrid, ToggleSnapGuides, ToggleToolOptions, Tool, Undo, Zoom,
-    ZoomIn, ZoomOut, ZoomWindow,
+    ToggleLayerBoundary, ToggleRightSidebar, ToggleSnapGrid, ToggleSnapGuides, ToggleToolOptions,
+    Tool, Undo, Zoom, ZoomIn, ZoomOut, ZoomWindow,
 };
 use crate::document::{CropRect, DrawnTile, FileFormat};
 use crate::preview;
@@ -41,6 +41,7 @@ pub(super) use crate::theme::{
 };
 const HEADER_HEIGHT: f32 = 36.;
 const INSPECTOR_WIDTH: f32 = 272.;
+const INSPECTOR_FOLDED_WIDTH: f32 = 36.;
 const TOOLBOX_RESIZE_HANDLE_WIDTH: f32 = 6.;
 pub(super) const TOOLBOX_DEFAULT_WIDTH: f32 = INSPECTOR_WIDTH;
 const TOOLBOX_MIN_WIDTH: f32 = 140.;
@@ -139,6 +140,11 @@ impl Render for Workspace {
             )
             .on_action(|_: &MinimizeWindow, window, _| window.minimize_window())
             .on_action(|_: &ZoomWindow, window, _| window.zoom_window())
+            .when(interactive, |root| {
+                root.on_action(cx.listener(|this, _: &ToggleRightSidebar, window, cx| {
+                    this.toggle_inspector(window, cx);
+                }))
+            })
             .when(interactive, |root| {
                 let root = self.bind_layer_actions(root, cx);
                 let root = self.bind_geometry_actions(root, cx);
@@ -1712,6 +1718,18 @@ impl Workspace {
     }
 
     fn inspector(&self, cx: &Context<Self>) -> Div {
+        if self.preferences.inspector_folded {
+            return div()
+                .w(px(INSPECTOR_FOLDED_WIDTH))
+                .flex_shrink_0()
+                .border_l_1()
+                .border_color(rgb(BORDER))
+                .child(
+                    workspace_header()
+                        .justify_center()
+                        .child(self.inspector_toggle()),
+                );
+        }
         let tool = self.preferences.tool.info();
         div()
             .w(px(INSPECTOR_WIDTH))
@@ -1727,6 +1745,7 @@ impl Workspace {
                     .items_center()
                     .justify_between()
                     .child(
+                        div().flex().items_center().gap_1().child(
                         icon_button("reset")
                             .id("reset-current-tool")
                             .tooltip(tooltip_with_detail("Reset Current Tool", self.current_tool_reset_blocker().unwrap_or("Restore this tool's defaults, including shared options. Existing artwork is unchanged.")))
@@ -1744,6 +1763,7 @@ impl Workspace {
                                         }
                                     })
                             }, |button| button.opacity(0.4)),
+                        ).child(self.inspector_toggle()),
                     ),
             )
             .child(
@@ -1753,6 +1773,7 @@ impl Workspace {
                     .max_h(relative(0.5))
                     .min_h_0()
                     .overflow_y_scroll()
+                    .track_scroll(&self.inspector_scroll)
                     .child(
                         div()
                             .flex()
@@ -2536,6 +2557,39 @@ impl Workspace {
             })
     }
 
+    fn toggle_inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Resolve fields before removing their focus path. Canvas drafts remain
+        // active; folding the dock never applies or cancels them.
+        self.commit_numeric_edit(window, cx);
+        self.close_font_picker(window, cx);
+        self.layer_menu = None;
+        self.preferences.inspector_folded = !self.preferences.inspector_folded;
+        self.focus.focus(window);
+        cx.notify();
+    }
+
+    fn inspector_toggle(&self) -> gpui::Stateful<Div> {
+        let folded = self.preferences.inspector_folded;
+        icon_button(if folded {
+            "sidebar-right-open"
+        } else {
+            "sidebar-right-close"
+        })
+        .id("toggle-right-sidebar")
+        .size(px(24.))
+        .tab_index(0)
+        .key_context("SidebarToggle")
+        .cursor_pointer()
+        .hover(|button| button.bg(rgb(HOVER)).text_color(rgb(TEXT)))
+        .tooltip(tooltip(if folded {
+            "Expand right sidebar"
+        } else {
+            "Collapse right sidebar"
+        }))
+        .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+        .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleRightSidebar), cx))
+    }
+
     fn inspector_tabs(&self, cx: &Context<Self>) -> Div {
         let selected = self.preferences.inspector_tab;
         let tab = |label: &'static str, target: super::InspectorTab, cx: &Context<Self>| {
@@ -2594,6 +2648,10 @@ impl Workspace {
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
+                    .track_scroll(match selected {
+                        super::InspectorTab::Layers => &self.layers_scroll,
+                        super::InspectorTab::Paths => &self.paths_scroll,
+                    })
                     .child(content),
             )
     }

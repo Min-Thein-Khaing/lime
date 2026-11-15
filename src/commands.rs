@@ -44,6 +44,7 @@ actions!(
         ResetCurrentTool,
         ResetAllTools,
         ToggleToolOptions,
+        ToggleRightSidebar,
         ZoomIn,
         ZoomOut,
         ApplyCrop,
@@ -511,6 +512,10 @@ pub(super) fn tool_disclosure_bindings() -> [KeyBinding; 2] {
 
 pub fn register(cx: &mut App) {
     cx.bind_keys(tool_disclosure_bindings());
+    cx.bind_keys([
+        KeyBinding::new("enter", ToggleRightSidebar, Some("SidebarToggle")),
+        KeyBinding::new("space", ToggleRightSidebar, Some("SidebarToggle")),
+    ]);
     let primary = if cfg!(target_os = "macos") {
         "cmd"
     } else {
@@ -781,6 +786,8 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
             vec![
                 zoom_menu(),
                 tool(Tool::Pan),
+                MenuItem::separator(),
+                MenuItem::action("Toggle Right Sidebar", ToggleRightSidebar),
                 MenuItem::separator(),
                 MenuItem::action("Toggle Grid", ToggleGrid),
                 MenuItem::action("Toggle Rulers and Guides", ToggleGuides),
@@ -1177,6 +1184,7 @@ mod tests {
             "200%",
             "400%",
             "Pan",
+            "Toggle Right Sidebar",
             "Toggle Grid",
             "Toggle Rulers and Guides",
             "Snap to Grid",

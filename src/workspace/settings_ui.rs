@@ -127,6 +127,7 @@ pub(super) struct Preferences {
     pub(super) clone_sample_all: bool,
     pub(super) clone_show_source: bool,
     pub(super) inspector_tab: InspectorTab,
+    pub(super) inspector_folded: bool,
     pub(super) path_handle_mode: crate::paths::HandleMode,
     pub(super) path_stroke_style: stroke_ui::PathStrokeStyle,
     pub(super) text_defaults: text_ui::TextDefaults,
@@ -182,6 +183,7 @@ impl Default for Preferences {
             clone_sample_all: false,
             clone_show_source: true,
             inspector_tab: InspectorTab::Layers,
+            inspector_folded: false,
             path_handle_mode: crate::paths::HandleMode::Independent,
             path_stroke_style: stroke_ui::PathStrokeStyle::Brush,
             text_defaults: text_ui::TextDefaults::default(),
@@ -678,6 +680,7 @@ pub(super) mod tests {
             "gradient_presets_expanded",
             "clone_sample_all",
             "toolbox_folded",
+            "inspector_folded",
             "move_snapping_expanded",
         ] {
             value[field] = json!(true);
