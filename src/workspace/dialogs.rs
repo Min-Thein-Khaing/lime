@@ -33,8 +33,8 @@ use crate::transform::{Anchor, Resample};
 use super::selection::MaskEdit;
 
 pub(super) struct Form {
-    focus: FocusHandle,
-    kind: FormKind,
+    pub(super) focus: FocusHandle,
+    pub(super) kind: FormKind,
     pdf_input_drag: Option<pdf_input::PdfInputDrag>,
     pub(super) error: Option<String>,
     // The shadow color picker returns to its draft without ending the filter session.
@@ -42,13 +42,14 @@ pub(super) struct Form {
 }
 
 #[derive(Clone, Copy)]
-enum ColorTarget {
+pub(super) enum ColorTarget {
     Swatch(usize),
     Shadow,
     GradientStop { revision: u64, index: usize },
 }
 
-enum FormKind {
+pub(super) enum FormKind {
+    Info(super::info::InfoDialog),
     New {
         fields: [Field; 2],
         active: usize,
@@ -302,7 +303,7 @@ impl FormKind {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum LayerFill {
+pub(super) enum LayerFill {
     Transparent,
     Foreground,
     Background,
@@ -895,11 +896,18 @@ impl Workspace {
         true
     }
 
-    fn show_form(&mut self, kind: FormKind, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn show_form(
+        &mut self,
+        kind: FormKind,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         if self.dialog_open || self.form.is_some() {
             return;
         }
-        if !matches!(kind, FormKind::Color { .. }) && self.finish_text(window, cx) {
+        if !matches!(kind, FormKind::Color { .. } | FormKind::Info(_))
+            && self.finish_text(window, cx)
+        {
             self.defer_after_text(move |this, window, cx| this.show_form(kind, window, cx));
             return;
         }
@@ -928,11 +936,18 @@ impl Workspace {
             cx.notify();
             return;
         }
+        let prior_focus = self.form.as_ref().and_then(|form| {
+            if let FormKind::Info(info) = &form.kind {
+                info.prior_focus.clone()
+            } else {
+                None
+            }
+        });
         self.clear_adjustment(window, cx);
         self.clear_filter(window, cx);
         self.clear_pdf_previews(window, cx);
         self.form = None;
-        self.focus.focus(window);
+        prior_focus.as_ref().unwrap_or(&self.focus).focus(window);
         cx.notify();
     }
 
@@ -1204,6 +1219,7 @@ impl Workspace {
             return;
         };
         match &form.kind {
+            FormKind::Info(_) => self.dismiss_form(window, cx),
             FormKind::New {
                 fields,
                 transparent,
@@ -1582,6 +1598,7 @@ impl Workspace {
             key => {
                 form.error = None;
                 match &mut form.kind {
+                    FormKind::Info(_) => {}
                     FormKind::New { fields, active, .. } => {
                         if key == "tab" {
                             *active = 1 - *active;
@@ -2109,6 +2126,9 @@ impl Workspace {
         let adjustment_histogram = self.adjustment_histogram;
         let filter_preview = self.filter_preview.clone();
         let form = self.form.as_ref()?;
+        if let FormKind::Info(info) = &form.kind {
+            return Some(self.info_overlay(info, &form.focus, window, cx));
+        }
         let mut can_accept = true;
         let wide_pdf = matches!(form.kind, FormKind::PdfImport { .. });
         let shadow = matches!(
@@ -2129,6 +2149,7 @@ impl Workspace {
         };
         let (title, accept, content) =
             match &form.kind {
+                FormKind::Info(_) => unreachable!("information dialogs use their own content"),
                 FormKind::New {
                     fields,
                     active,

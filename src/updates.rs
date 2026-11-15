@@ -17,7 +17,7 @@ use url::Url;
 pub(crate) use ui::{badge, show};
 
 const API: &str = "https://api.github.com/repos/eimg/lime/releases/latest";
-const RELEASES: &str = "https://github.com/eimg/lime/releases";
+pub(crate) const RELEASES: &str = "https://github.com/eimg/lime/releases";
 const INTERVAL: Duration = Duration::from_secs(24 * 60 * 60);
 const MAX_BODY: u64 = 1024 * 1024;
 
@@ -41,10 +41,10 @@ struct Release {
 }
 
 #[derive(Clone, Debug)]
-struct Available {
-    version: String,
-    changelog: String,
-    download: Option<String>,
+pub(crate) struct Available {
+    pub(crate) version: String,
+    pub(crate) changelog: String,
+    pub(crate) download: Option<String>,
 }
 
 #[derive(Default, Deserialize, Serialize)]
@@ -56,7 +56,7 @@ struct Cache {
 }
 
 #[derive(Default)]
-enum CheckStatus {
+pub(crate) enum CheckStatus {
     #[default]
     Unchecked,
     Current,
@@ -64,10 +64,10 @@ enum CheckStatus {
 }
 
 #[derive(Default)]
-struct UpdateState {
-    checking: bool,
-    available: Option<Available>,
-    status: CheckStatus,
+pub(crate) struct UpdateState {
+    pub(crate) checking: bool,
+    pub(crate) available: Option<Available>,
+    pub(crate) status: CheckStatus,
 }
 impl Global for UpdateState {}
 

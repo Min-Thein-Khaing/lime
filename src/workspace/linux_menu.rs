@@ -2,6 +2,8 @@
 //! Keep editor focus in place so clipboard and typing-history actions keep their
 //! normal targets. The workspace's keystroke interceptor routes menu navigation
 //! before any inline editor, text tool, or canvas shortcut sees it.
+use std::collections::HashSet;
+
 use gpui::{
     Action, Bounds, Context, CursorStyle, Decorations, Div, Keystroke, MouseButton, OwnedMenu,
     OwnedMenuItem, Pixels, Point, ResizeEdge, ScrollHandle, Size, Window, deferred, div, point,
@@ -243,11 +245,8 @@ impl Workspace {
             && !key.modifiers.platform
             && !key.modifiers.shift;
         if mnemonic
-            && let Some(index) = self.linux_menu.menus.iter().position(|menu| {
-                menu.name
-                    .chars()
-                    .next()
-                    .is_some_and(|c| c.to_lowercase().to_string() == key.key)
+            && let Some(index) = menu_keys(&self.linux_menu.menus).iter().position(|letter| {
+                letter.is_some_and(|letter| letter.to_ascii_lowercase().to_string() == key.key)
             })
         {
             self.linux_menu.open(index);
@@ -311,6 +310,17 @@ impl Workspace {
                     }
                 }
                 "tab" => self.cycle_linux_menu(!key.modifiers.shift, window, cx),
+                _ if !key.modifiers.shift => {
+                    if let Some(index) = self.linux_menu.current().and_then(|menu| {
+                        item_keys(menu).iter().position(|letter| {
+                            letter.is_some_and(|letter| {
+                                letter.to_ascii_lowercase().to_string() == key.key
+                            })
+                        })
+                    }) {
+                        self.activate_linux_menu(self.linux_menu.parents.len(), index, window, cx);
+                    }
+                }
                 _ => {}
             }
         }
@@ -500,6 +510,7 @@ impl Workspace {
             self.linux_menu.close();
         }
         let menus = self.linux_menu.menus.clone();
+        let keys = menu_keys(&menus);
         div()
             .h(px(BAR_HEIGHT))
             .flex_shrink_0()
@@ -546,7 +557,7 @@ impl Workspace {
                             cx.notify();
                         }
                     }))
-                    .child(menu.name.clone())
+                    .child(mnemonic_text(&menu.name, keys[index]))
             }))
     }
 
@@ -562,6 +573,7 @@ impl Workspace {
         let path = self.linux_menu.parents[..depth].to_vec();
         let scroll_path = path.clone();
         let panel = &self.linux_menu.panels[depth];
+        let keys = item_keys(menu);
         div()
             .id(("linux-menu-panel", depth))
             .absolute()
@@ -638,7 +650,7 @@ impl Workspace {
                                             .map(|name| icon(name, 14.)),
                                     ),
                                 )
-                                .child(div().flex_1().child(name.clone()))
+                                .child(div().flex_1().child(mnemonic_text(name, keys[index])))
                                 .child(
                                     div()
                                         .text_size(px(11.))
@@ -649,7 +661,7 @@ impl Workspace {
                             }
                             OwnedMenuItem::Submenu(menu) => row
                                 .child(div().w(px(16.)))
-                                .child(div().flex_1().child(menu.name.clone()))
+                                .child(div().flex_1().child(mnemonic_text(&menu.name, keys[index])))
                                 .child(icon("chevron-right", 14.))
                                 .into_any_element(),
                             OwnedMenuItem::SystemMenu(_) => div().into_any_element(),
@@ -753,6 +765,39 @@ impl Workspace {
     }
 }
 
+fn menu_keys(menus: &[OwnedMenu]) -> Vec<Option<char>> {
+    let mut used = HashSet::new();
+    menus
+        .iter()
+        .map(|menu| crate::commands::menu_mnemonic(&menu.name, &mut used))
+        .collect()
+}
+
+fn item_keys(menu: &OwnedMenu) -> Vec<Option<char>> {
+    let mut used = HashSet::new();
+    menu.items
+        .iter()
+        .map(|item| match item {
+            OwnedMenuItem::Action { name, .. } => crate::commands::menu_mnemonic(name, &mut used),
+            OwnedMenuItem::Submenu(menu) => crate::commands::menu_mnemonic(&menu.name, &mut used),
+            _ => None,
+        })
+        .collect()
+}
+
+fn mnemonic_text(label: &str, mnemonic: Option<char>) -> Div {
+    let row = div().flex();
+    if let Some(letter) = mnemonic
+        && let Some(at) = label.find(letter)
+    {
+        row.child(label[..at].to_owned())
+            .child(div().underline().child(letter.to_string()))
+            .child(label[at + letter.len_utf8()..].to_owned())
+    } else {
+        row.child(label.to_owned())
+    }
+}
+
 fn shortcut(action: &dyn Action, window: &Window, cx: &Context<Workspace>) -> String {
     window
         .focused(cx)
@@ -771,6 +816,42 @@ fn shortcut(action: &dyn Action, window: &Window, cx: &Context<Workspace>) -> St
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn every_menu_level_gets_stable_unique_mnemonics_including_filters() {
+        let menus: Vec<_> = crate::commands::application_menus(false)
+            .into_iter()
+            .map(|menu| menu.owned())
+            .collect();
+        let keys = menu_keys(&menus);
+        let file = menus.iter().position(|menu| menu.name == "File").unwrap();
+        let filters = menus
+            .iter()
+            .position(|menu| menu.name == "Filters")
+            .unwrap();
+        assert_eq!(keys[file], Some('F'));
+        assert_ne!(keys[file], keys[filters]);
+        assert!(keys[filters].is_some());
+        fn check(menus: &[OwnedMenu]) {
+            for menu in menus {
+                let keys: Vec<_> = item_keys(menu)
+                    .into_iter()
+                    .flatten()
+                    .map(|c| c.to_ascii_lowercase())
+                    .collect();
+                assert_eq!(
+                    keys.len(),
+                    keys.iter().copied().collect::<HashSet<_>>().len()
+                );
+                for item in &menu.items {
+                    if let OwnedMenuItem::Submenu(child) = item {
+                        check(std::slice::from_ref(child));
+                    }
+                }
+            }
+        }
+        check(&menus);
+    }
 
     #[test]
     fn navigation_skips_unavailable_rows_and_wraps() {

@@ -11,6 +11,7 @@ mod filter_ui;
 mod gradient_ui;
 mod guide_ui;
 mod history;
+mod info;
 mod layer_menu;
 mod layers;
 #[cfg(any(target_os = "linux", test))]
@@ -429,6 +430,9 @@ impl Workspace {
         cx.intercept_keystrokes(move |event, window, cx| {
             let handled = numeric_entity
                 .update(cx, |workspace, cx| {
+                    if workspace.info_key(&event.keystroke, window, cx) {
+                        return true;
+                    }
                     if workspace.layer_menu_key(&event.keystroke, window, cx) {
                         return true;
                     }

@@ -23,7 +23,9 @@ renders an in-window menu bar from `commands::application_menus(false)` without
 introducing GTK or changing the macOS/Windows menu adapters. Menu navigation
 runs before inline editors in the workspace keystroke interceptor; editor focus
 stays in place for action dispatch. F10/Alt-letter, arrows, Return, Escape,
-scrolling, and current action availability are supported. Submenus cascade beside
+scrolling, and current action availability are supported. Each menu level uses
+Windows' first-unused-letter mnemonic rule; underlined letters open top-level
+menus with Alt or activate items in the open panel. Submenus cascade beside
 visible parent panels on hover/click or Right/Return, flipping left near the window
 edge. Each panel retains its selection and scroll position; Left/Escape closes
 one submenu level, and Escape at the root dismisses the menu. Scrolling a parent
@@ -530,13 +532,20 @@ document is a single plain layer without paths, guides, or editable text.
   excludes drafts/prereleases and ignores build metadata. Platform/architecture
   matching uses published asset names (Apple silicon DMG, Windows x64 EXE then
   ZIP), and direct URLs must match this repository's HTTPS release paths.
-  `src/updates/ui.rs` adds a status-bar badge and a separate update window with
-  changelog/download links, current/checking/offline states, and keyboard access.
+  `src/updates/ui.rs` adds a status-bar badge. `src/workspace/info.rs` renders
+  About Lime and Updates inside the existing form modal host, with no extra OS
+  window. Updates retains changelog/download links and current/checking/offline
+  states; checks continue after dismissal. Automatic checks only show the badge.
+  About includes the compiled version, platform/architecture, source and issue
+  links. Information dialogs preserve text/canvas drafts, trap Tab/Shift-Tab and
+  editor shortcuts, and restore the previous focus on Close/Escape. Stable button
+  focus slots survive asynchronous update results; long content scrolls.
   The status bar always shows the compiled package version beside the image count
   in muted 11-point text, matching the update badge's size and padding; the update
   badge remains the rightmost item when available.
   Missing platform assets leave the changelog available without guessing a URL.
-  The Lime menu (macOS) or Help menu (Windows) exposes Check for Updates. Nothing
+  The Lime menu (macOS) or Help menu (Windows/Linux) exposes About Lime and
+  Check for Updates. Nothing
   downloads or installs in the app, and update state never enters image history.
 - `src/main.rs` starts GPUI, creates or reopens the main window, and routes
   launch arguments and macOS file URLs to the workspace.

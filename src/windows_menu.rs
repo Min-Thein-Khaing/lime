@@ -745,9 +745,7 @@ fn build_submenu(
 }
 
 fn mnemonic_label(label: &str, used: &mut HashSet<char>) -> String {
-    let mnemonic = label.chars().find(|character| {
-        character.is_ascii_alphanumeric() && used.insert(character.to_ascii_lowercase())
-    });
+    let mnemonic = crate::commands::menu_mnemonic(label, used);
 
     let Some(mnemonic) = mnemonic else {
         return label.replace('&', "&&");

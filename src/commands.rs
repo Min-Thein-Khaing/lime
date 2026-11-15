@@ -121,6 +121,7 @@ actions!(
         ShowAll,
         Quit,
         CheckForUpdates,
+        AboutLime,
     ]
 );
 
@@ -670,6 +671,15 @@ pub fn register(cx: &mut App) {
             crate::updates::check(true, cx);
         });
     });
+    cx.on_action(|_: &AboutLime, cx| {
+        cx.defer(|cx| {
+            if let Ok(handle) = crate::ensure_workspace(cx) {
+                let _ = handle.update(cx, |workspace, window, cx| {
+                    workspace.show_about(window, cx);
+                });
+            }
+        });
+    });
     cx.on_action(|_: &Hide, cx| cx.hide());
     cx.on_action(|_: &HideOthers, cx| cx.hide_other_apps());
     cx.on_action(|_: &ShowAll, cx| cx.unhide_other_apps());
@@ -717,6 +727,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
         menus.push(menu(
             "Lime",
             vec![
+                MenuItem::action("About Lime", AboutLime),
                 MenuItem::action("Check for Updates…", CheckForUpdates),
                 MenuItem::separator(),
                 MenuItem::os_submenu("Services", SystemMenuType::Services),
@@ -908,7 +919,10 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
     if !macos {
         menus.push(menu(
             "Help",
-            vec![MenuItem::action("Check for Updates…", CheckForUpdates)],
+            vec![
+                MenuItem::action("About Lime", AboutLime),
+                MenuItem::action("Check for Updates…", CheckForUpdates),
+            ],
         ));
     }
     menus
@@ -960,6 +974,17 @@ fn zoom_menu() -> MenuItem {
         }),
     );
     MenuItem::submenu(menu("Zoom", items))
+}
+
+// Match Windows' first-unused-letter convention for every level of Linux menus.
+#[cfg(any(target_os = "windows", target_os = "linux", test))]
+pub(crate) fn menu_mnemonic(
+    label: &str,
+    used: &mut std::collections::HashSet<char>,
+) -> Option<char> {
+    label.chars().find(|character| {
+        character.is_ascii_alphanumeric() && used.insert(character.to_ascii_lowercase())
+    })
 }
 
 fn menu(name: &'static str, items: Vec<MenuItem>) -> Menu {
@@ -1100,6 +1125,7 @@ mod tests {
         let windows = menu_labels(&application_menus(false));
         let checklist = [
             "menu:Lime",
+            "About Lime",
             "Check for Updates…",
             "Services",
             "Hide Lime",
@@ -1281,6 +1307,7 @@ mod tests {
                 !matches!(
                     *label,
                     "menu:Lime"
+                        | "About Lime"
                         | "Check for Updates…"
                         | "Services"
                         | "Hide Lime"
@@ -1295,7 +1322,7 @@ mod tests {
             .position(|label| *label == "Export as PDF…")
             .unwrap();
         expected_windows.insert(export + 1, "Exit");
-        expected_windows.extend(["menu:Help", "Check for Updates…"]);
+        expected_windows.extend(["menu:Help", "About Lime", "Check for Updates…"]);
         assert_eq!(
             windows,
             expected_windows
