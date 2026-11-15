@@ -1133,7 +1133,9 @@ From the repository root, use a recent Rust toolchain and Xcode. Run
 `.github/workflows/macos.yml` runs formatting, Clippy including test targets, the
 full suite, release rendering/stroke/area-preview benchmarks, the release app
 bundle/signature and arm64 checks, and the bundled executable's headless PDF
-checks on macos-15. Branch/PR/manual runs and v* tag pushes are supported. The app
+checks on macos-15. All four workflows (macOS, Windows, Linux, and PDF) run only
+through manual `workflow_dispatch` for candidate validation; branch pushes,
+tag pushes, and pull requests do not trigger CI. The app
 artifact is first archived with ditto to preserve executable bits and bundle
 metadata; CI never launches GPUI or Finder and does not create the Finder DMG.
 
