@@ -1,3 +1,4 @@
+mod export;
 mod pdf_input;
 
 use std::{cell::Cell, path::PathBuf, rc::Rc, sync::Arc};
@@ -8,10 +9,10 @@ use gpui::{
     Point, Window, canvas, div, fill, img, point, prelude::*, px, rgb, rgba, size,
 };
 
+use self::export::ExportDraft;
 use super::Workspace;
 use super::adjust_ui::AdjustKind;
 use super::color::{ColorControl, Hsv, control};
-use super::files::ExportFormat;
 use super::filter_ui::FilterKind;
 use super::layers::{opacity_from_percent, opacity_percent};
 use super::pdf_ui::PdfTarget;
@@ -22,9 +23,7 @@ use crate::adjustments::{
     Adjustment, BalanceRange, ColorBalance, Curve, Curves, GAMMA_MAX, GAMMA_MIN, GAMMA_ONE,
     Histogram, Levels, MapChannel,
 };
-use crate::document::{
-    Document, FileFormat, LayerId, MAX_LAYER_NAME_CHARS, file_name, solid_color,
-};
+use crate::document::{Document, LayerId, MAX_LAYER_NAME_CHARS, file_name, solid_color};
 use crate::filters::{self, FilterSpec};
 use crate::pdf::{self, PdfBackground, PdfCanvas, PdfMode, PdfOptions, PdfSource};
 use crate::preview::Dirty;
@@ -61,13 +60,7 @@ pub(super) enum FormKind {
         hsv: Hsv,
         drag: Option<ColorControl>,
     },
-    JpegQuality {
-        quality: Field,
-    },
-    PdfExport {
-        dpi: Field,
-        canvas: (u32, u32),
-    },
+    Export(ExportDraft),
     NewLayer {
         name: Field,
         fill: LayerFill,
@@ -623,39 +616,6 @@ impl Workspace {
             window,
             cx,
         );
-    }
-
-    pub(super) fn jpeg_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.refuse_pending_file_edit(cx) {
-            return;
-        }
-        if self.active_tab().is_some_and(|tab| !tab.busy()) {
-            let quality = Field::new(self.preferences.jpeg_quality.to_string());
-            self.show_form(FormKind::JpegQuality { quality }, window, cx);
-        }
-    }
-
-    pub(super) fn pdf_export_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.dialog_open || self.form.is_some() || self.pdf_job.is_some() {
-            return;
-        }
-        if self.commit_numeric_with_followup(super::numeric::NumericFollowup::PdfExport, window, cx)
-        {
-            return;
-        }
-        if self.finish_text(window, cx) {
-            self.defer_after_text(Self::pdf_export_form);
-            return;
-        }
-        if self.refuse_pending_file_edit(cx) {
-            return;
-        }
-        let Some(tab) = self.active_tab().filter(|tab| !tab.busy()) else {
-            return;
-        };
-        let canvas = tab.document.content.size();
-        let dpi = Field::new(self.preferences.pdf_export_dpi.to_string());
-        self.show_form(FormKind::PdfExport { dpi, canvas }, window, cx);
     }
 
     pub(super) fn new_layer_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1280,34 +1240,17 @@ impl Workspace {
                     }
                 }
             }
-            FormKind::JpegQuality { quality } => {
-                let Some(quality) = quality.text.parse().ok().filter(|q| (1..=100).contains(q))
-                else {
-                    form.error = Some("Enter a quality from 1 to 100.".into());
-                    cx.notify();
-                    return;
+            FormKind::Export(draft) => {
+                let format = match draft.prepare() {
+                    Ok(format) => format,
+                    Err(error) => {
+                        form.error = Some(error.to_string());
+                        cx.notify();
+                        return;
+                    }
                 };
-                self.preferences.jpeg_quality = quality;
                 self.dismiss_form(window, cx);
-                self.export(
-                    ExportFormat::Raster {
-                        format: FileFormat::Jpeg,
-                        jpeg_quality: quality,
-                    },
-                    window,
-                    cx,
-                );
-            }
-            FormKind::PdfExport { dpi, canvas } => {
-                let dpi = dpi.text.parse().unwrap_or(0);
-                if let Err(error) = pdf::export::page_size(*canvas, dpi) {
-                    form.error = Some(error.to_string());
-                    cx.notify();
-                    return;
-                }
-                self.preferences.pdf_export_dpi = dpi;
-                self.dismiss_form(window, cx);
-                self.export(ExportFormat::Pdf { dpi }, window, cx);
+                self.export(format, window, cx);
             }
             FormKind::NewLayer { name, fill } => {
                 let name = name.text.trim();
@@ -1607,12 +1550,7 @@ impl Workspace {
                             fields[*active].handle_key(event, FieldMode::Digits { max: 5 }, cx);
                         }
                     }
-                    FormKind::JpegQuality { quality } => {
-                        quality.handle_key(event, FieldMode::Digits { max: 3 }, cx)
-                    }
-                    FormKind::PdfExport { dpi, .. } => {
-                        dpi.handle_key(event, FieldMode::Digits { max: 4 }, cx)
-                    }
+                    FormKind::Export(draft) => draft.handle_key(event, cx),
                     FormKind::NewLayer { name, .. }
                     | FormKind::RenameLayer { name, .. }
                     | FormKind::GradientPreset { name, .. } => {
@@ -2147,216 +2085,224 @@ impl Workspace {
         } else {
             (f32::from(window.viewport_size().width) - 32.).clamp(320., 560.)
         };
-        let (title, accept, content) =
-            match &form.kind {
-                FormKind::Info(_) => unreachable!("information dialogs use their own content"),
-                FormKind::New {
-                    fields,
-                    active,
-                    transparent,
-                } => {
-                    let dimensions = div().flex().gap_3().children(
-                        ["Width (px)", "Height (px)"].into_iter().enumerate().map(
-                            |(index, label)| {
-                                div().flex_1().child(label).child(
-                                    fields[index]
-                                        .view(*active == index)
-                                        .id(label)
-                                        .mt_1()
-                                        .on_click(cx.listener(move |this, _, _, cx| {
-                                            if let Some(Form {
-                                                kind: FormKind::New { active, fields, .. },
-                                                ..
-                                            }) = &mut this.form
-                                            {
-                                                *active = index;
-                                                fields[index].selected = true;
-                                                cx.notify();
-                                            }
-                                        })),
-                                )
-                            },
-                        ),
-                    );
-                    let background = segmented(
-                        [("Background color", false), ("Transparent", true)]
-                            .into_iter()
-                            .map(|(label, value)| {
-                                choice_button(label, *transparent == value).on_click(cx.listener(
-                                    move |this, _, _, cx| {
+        let (title, accept, content) = match &form.kind {
+            FormKind::Info(_) => unreachable!("information dialogs use their own content"),
+            FormKind::New {
+                fields,
+                active,
+                transparent,
+            } => {
+                let dimensions = div().flex().gap_3().children(
+                    ["Width (px)", "Height (px)"]
+                        .into_iter()
+                        .enumerate()
+                        .map(|(index, label)| {
+                            div().flex_1().child(label).child(
+                                fields[index]
+                                    .view(*active == index)
+                                    .id(label)
+                                    .mt_1()
+                                    .on_click(cx.listener(move |this, _, _, cx| {
                                         if let Some(Form {
-                                            kind: FormKind::New { transparent, .. },
+                                            kind: FormKind::New { active, fields, .. },
                                             ..
                                         }) = &mut this.form
                                         {
-                                            *transparent = value;
+                                            *active = index;
+                                            fields[index].selected = true;
                                             cx.notify();
                                         }
-                                    },
-                                ))
-                            }),
-                    );
-                    (
-                        "New Image",
-                        "Create",
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_3()
-                            .child(dimensions)
-                            .child(div().child("Canvas background").child(background.mt_1())),
-                    )
-                }
-                FormKind::JpegQuality { quality } => (
-                    "Export as JPEG",
-                    "Choose File…",
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child("Quality (1–100)")
-                        .child(quality.view(true))
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(rgb(MUTED))
-                                .child("Higher values keep more detail and make larger files. Transparent areas become white."),
-                        ),
-                ),
-                FormKind::PdfExport { dpi, canvas } => {
-                    let size = pdf::export::page_size(*canvas, dpi.text.parse().unwrap_or(0));
-                    can_accept = size.is_ok();
-                    let summary = match size {
-                        Ok((width, height)) => format!(
-                            "Page size: {:.1} × {:.1} mm ({:.2} × {:.2} in)",
-                            width * 25.4 / 72., height * 25.4 / 72.,
-                            width / 72., height / 72.,
-                        ),
-                        Err(error) => error.to_string(),
-                    };
-                    (
-                        "Export as PDF",
-                        "Choose File…",
-                        div().flex().flex_col().gap_3()
-                            .child("Exports the current canvas as a single image-based PDF page.")
-                            .child(div().child("Resolution (DPI)").child(
-                                self.pdf_input_view(pdf_input::PdfInput::Dpi, dpi, true, None, cx).mt_1()
-                            ))
-                            .child(div().text_sm().text_color(rgb(if can_accept { MUTED } else { 0xffb8ad })).child(summary))
-                            .child(div().text_xs().text_color(rgb(MUTED)).child(format!(
-                                "{} × {} pixels, lossless, white background. Resolution changes page size without resizing pixels. Text and visible layers are flattened.",
-                                canvas.0, canvas.1,
-                            ))),
-                    )
-                }
-                FormKind::NewLayer { name, fill } => {
-                    let fills = div().flex().gap_2().children(
-                        [
-                            ("Transparent", LayerFill::Transparent),
-                            ("Foreground", LayerFill::Foreground),
-                            ("Background", LayerFill::Background),
-                        ]
+                                    })),
+                            )
+                        }),
+                );
+                let background = segmented(
+                    [("Background color", false), ("Transparent", true)]
                         .into_iter()
                         .map(|(label, value)| {
-                            form_button(label, *fill == value).on_click(cx.listener(
+                            choice_button(label, *transparent == value).on_click(cx.listener(
                                 move |this, _, _, cx| {
                                     if let Some(Form {
-                                        kind: FormKind::NewLayer { fill, .. },
+                                        kind: FormKind::New { transparent, .. },
                                         ..
                                     }) = &mut this.form
                                     {
-                                        *fill = value;
+                                        *transparent = value;
                                         cx.notify();
                                     }
                                 },
                             ))
                         }),
-                    );
-                    (
-                        "New Layer",
-                        "Create",
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_3()
-                            .child(div().child("Name").child(name.view(true).mt_1()))
-                            .child(div().child("Fill").child(fills.mt_1())),
-                    )
-                }
-                FormKind::RenameLayer { name, .. } => (
-                    "Rename Layer",
-                    "Rename",
+                );
+                (
+                    "New Image",
+                    "Create",
                     div()
                         .flex()
                         .flex_col()
-                        .gap_1()
-                        .child("Name")
-                        .child(name.view(true)),
-                ),
-                FormKind::GradientPreset { id, name, .. } => (
-                    if id.is_some() { "Rename Gradient" } else { "Save Gradient" },
-                    if id.is_some() { "Rename" } else { "Save" },
-                    div().flex().flex_col().gap_1().child("Name").child(name.view(true)),
-                ),
-                FormKind::LayerOpacity { percent, .. } => (
-                    "Layer Opacity",
-                    "Set Opacity",
+                        .gap_3()
+                        .child(dimensions)
+                        .child(div().child("Canvas background").child(background.mt_1())),
+                )
+            }
+            FormKind::Export(draft) => {
+                can_accept = draft.prepare().is_ok();
+                ("Export", "Export…", self.export_controls(draft, cx))
+            }
+            FormKind::NewLayer { name, fill } => {
+                let fills = div().flex().gap_2().children(
+                    [
+                        ("Transparent", LayerFill::Transparent),
+                        ("Foreground", LayerFill::Foreground),
+                        ("Background", LayerFill::Background),
+                    ]
+                    .into_iter()
+                    .map(|(label, value)| {
+                        form_button(label, *fill == value).on_click(cx.listener(
+                            move |this, _, _, cx| {
+                                if let Some(Form {
+                                    kind: FormKind::NewLayer { fill, .. },
+                                    ..
+                                }) = &mut this.form
+                                {
+                                    *fill = value;
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                    }),
+                );
+                (
+                    "New Layer",
+                    "Create",
                     div()
                         .flex()
                         .flex_col()
-                        .gap_1()
-                        .child("Opacity (0–100%)")
-                        .child(percent.view(true)),
-                ),
-                FormKind::PdfImport {
-                    path,
-                    source,
-                    dpi,
-                    page_selection,
-                    page_scroll,
-                    all_pages,
-                    mode,
-                    background,
-                    canvas,
-                    target,
-                    active,
-                } => {
-                    let info = &source.info;
-                    let pages = if info.pages == 1 {
-                        "1 page".to_owned()
+                        .gap_3()
+                        .child(div().child("Name").child(name.view(true).mt_1()))
+                        .child(div().child("Fill").child(fills.mt_1())),
+                )
+            }
+            FormKind::RenameLayer { name, .. } => (
+                "Rename Layer",
+                "Rename",
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child("Name")
+                    .child(name.view(true)),
+            ),
+            FormKind::GradientPreset { id, name, .. } => (
+                if id.is_some() {
+                    "Rename Gradient"
+                } else {
+                    "Save Gradient"
+                },
+                if id.is_some() { "Rename" } else { "Save" },
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child("Name")
+                    .child(name.view(true)),
+            ),
+            FormKind::LayerOpacity { percent, .. } => (
+                "Layer Opacity",
+                "Set Opacity",
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child("Opacity (0–100%)")
+                    .child(percent.view(true)),
+            ),
+            FormKind::PdfImport {
+                path,
+                source,
+                dpi,
+                page_selection,
+                page_scroll,
+                all_pages,
+                mode,
+                background,
+                canvas,
+                target,
+                active,
+            } => {
+                let info = &source.info;
+                let pages = if info.pages == 1 {
+                    "1 page".to_owned()
+                } else {
+                    format!("{} pages", info.pages)
+                };
+                let preview = (|| -> Result<_, String> {
+                    let dpi = dpi
+                        .text
+                        .parse::<u32>()
+                        .map_err(|_| "Enter a resolution in DPI.".to_owned())?;
+                    let page_text = if *all_pages {
+                        format!("1-{}", info.pages)
                     } else {
-                        format!("{} pages", info.pages)
+                        page_selection.text.clone()
                     };
-                    let preview = (|| -> Result<_, String> {
-                        let dpi = dpi.text.parse::<u32>().map_err(|_| "Enter a resolution in DPI.".to_owned())?;
-                        let page_text = if *all_pages { format!("1-{}", info.pages) } else { page_selection.text.clone() };
-                        let pages = pdf::parse_page_selection(&page_text, info.pages).map_err(|error| error.to_string())?;
-                        let options = PdfOptions {
-                            path: path.clone(), pages, dpi,
-                            mode: if *target == PdfTarget::NewDocument { *mode } else { PdfMode::Layers },
-                            background: *background,
-                            canvas: if *target == PdfTarget::NewDocument { *canvas } else { PdfCanvas::FirstPage },
-                        };
-                        let sizes = pdf::validate_options(info, &options).map_err(|error| error.to_string())?;
-                        Ok((options, sizes))
-                    })();
-                    let target_canvas = match target {
-                        PdfTarget::NewDocument => preview.as_ref().ok().and_then(|(options, sizes)| {
-                            (options.mode == PdfMode::Layers).then(|| pdf::layered_canvas_size(sizes, options.canvas).ok()).flatten()
-                        }),
-                        PdfTarget::Layers { tab_id, .. } => self.active_tab().filter(|tab| tab.id == *tab_id).map(|tab| tab.document.content.size()),
-                    };
-                    let estimate = preview.as_ref().map_or_else(
-                        |error| error.clone(),
-                        |(options, sizes)| {
-                            if *target == PdfTarget::NewDocument && let Some((width, height)) = target_canvas {
-                                format!("{} selected · Canvas: {width} × {height} px at {} DPI", options.pages.len(), options.dpi)
-                            } else {
-                                format!("{} selected · Page {} at {} DPI: {} × {} px", options.pages.len(), options.pages[0], options.dpi, sizes[0].0, sizes[0].1)
-                            }
+                    let pages = pdf::parse_page_selection(&page_text, info.pages)
+                        .map_err(|error| error.to_string())?;
+                    let options = PdfOptions {
+                        path: path.clone(),
+                        pages,
+                        dpi,
+                        mode: if *target == PdfTarget::NewDocument {
+                            *mode
+                        } else {
+                            PdfMode::Layers
                         },
-                    );
-                    let clipping = preview.as_ref().ok().and_then(|(_, sizes)| {
+                        background: *background,
+                        canvas: if *target == PdfTarget::NewDocument {
+                            *canvas
+                        } else {
+                            PdfCanvas::FirstPage
+                        },
+                    };
+                    let sizes =
+                        pdf::validate_options(info, &options).map_err(|error| error.to_string())?;
+                    Ok((options, sizes))
+                })();
+                let target_canvas = match target {
+                    PdfTarget::NewDocument => preview.as_ref().ok().and_then(|(options, sizes)| {
+                        (options.mode == PdfMode::Layers)
+                            .then(|| pdf::layered_canvas_size(sizes, options.canvas).ok())
+                            .flatten()
+                    }),
+                    PdfTarget::Layers { tab_id, .. } => self
+                        .active_tab()
+                        .filter(|tab| tab.id == *tab_id)
+                        .map(|tab| tab.document.content.size()),
+                };
+                let estimate = preview.as_ref().map_or_else(
+                    |error| error.clone(),
+                    |(options, sizes)| {
+                        if *target == PdfTarget::NewDocument
+                            && let Some((width, height)) = target_canvas
+                        {
+                            format!(
+                                "{} selected · Canvas: {width} × {height} px at {} DPI",
+                                options.pages.len(),
+                                options.dpi
+                            )
+                        } else {
+                            format!(
+                                "{} selected · Page {} at {} DPI: {} × {} px",
+                                options.pages.len(),
+                                options.pages[0],
+                                options.dpi,
+                                sizes[0].0,
+                                sizes[0].1
+                            )
+                        }
+                    },
+                );
+                let clipping = preview.as_ref().ok().and_then(|(_, sizes)| {
                         let (width, height) = target_canvas?;
                         let count = sizes.iter().filter(|size| size.0 > width || size.1 > height).count();
                         match count {
@@ -2365,19 +2311,54 @@ impl Workspace {
                             _ => Some(format!("{count} selected pages extend outside the canvas. Their pixels are retained in the layers.")),
                         }
                     });
-                    let range = segmented([
-                        choice_button("All", *all_pages || pdf::parse_page_selection(&page_selection.text, info.pages).is_ok_and(|pages| pages.len() == info.pages)).on_click(cx.listener(|this, _, _, cx| {
-                            if let Some(Form {kind: FormKind::PdfImport {source, all_pages, page_selection, active, ..}, error, ..}) = &mut this.form {
-                                *all_pages = true;
-                                *page_selection = Field::new(if source.info.pages == 1 {"1".into()} else {format!("1-{}", source.info.pages)});
-                                page_selection.selected = false;
-                                *active = 1;
-                                *error = None;
-                                cx.notify();
-                            }
-                        })),
-                        choice_button("None", !*all_pages && page_selection.text.trim().is_empty()).on_click(cx.listener(|this, _, _, cx| {
-                            if let Some(Form {kind: FormKind::PdfImport {all_pages, page_selection, active, page_scroll, ..}, error, ..}) = &mut this.form {
+                let range = segmented([
+                    choice_button(
+                        "All",
+                        *all_pages
+                            || pdf::parse_page_selection(&page_selection.text, info.pages)
+                                .is_ok_and(|pages| pages.len() == info.pages),
+                    )
+                    .on_click(cx.listener(|this, _, _, cx| {
+                        if let Some(Form {
+                            kind:
+                                FormKind::PdfImport {
+                                    source,
+                                    all_pages,
+                                    page_selection,
+                                    active,
+                                    ..
+                                },
+                            error,
+                            ..
+                        }) = &mut this.form
+                        {
+                            *all_pages = true;
+                            *page_selection = Field::new(if source.info.pages == 1 {
+                                "1".into()
+                            } else {
+                                format!("1-{}", source.info.pages)
+                            });
+                            page_selection.selected = false;
+                            *active = 1;
+                            *error = None;
+                            cx.notify();
+                        }
+                    })),
+                    choice_button("None", !*all_pages && page_selection.text.trim().is_empty())
+                        .on_click(cx.listener(|this, _, _, cx| {
+                            if let Some(Form {
+                                kind:
+                                    FormKind::PdfImport {
+                                        all_pages,
+                                        page_selection,
+                                        active,
+                                        page_scroll,
+                                        ..
+                                    },
+                                error,
+                                ..
+                            }) = &mut this.form
+                            {
                                 *all_pages = false;
                                 *page_selection = Field::new(String::new());
                                 page_selection.selected = false;
@@ -2387,110 +2368,223 @@ impl Workspace {
                                 cx.notify();
                             }
                         })),
-                    ]);
-                    let fields = self.pdf_input_view(pdf_input::PdfInput::Pages, page_selection, *active == 1, Some(page_scroll), cx);
-                    let modes = segmented([
-                        ("As Layers", PdfMode::Layers), ("As Images", PdfMode::Separate),
-                    ].map(|(label, choice)| choice_button(label, *mode == choice).on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(Form {kind: FormKind::PdfImport {mode, ..}, ..}) = &mut this.form {
-                            *mode = choice;
-                            cx.notify();
-                        }
-                    }))));
-                    let backgrounds = segmented([
-                        ("White", PdfBackground::White), ("Transparent", PdfBackground::Transparent),
-                    ].map(|(label, choice)| choice_button(label, *background == choice).on_click(cx.listener(move |this, _, window, cx| {
-                        if let Some(Form { kind: FormKind::PdfImport { background, .. }, .. }) = &mut this.form {
-                            *background = choice;
-                            this.set_pdf_preview_background(choice, window, cx);
-                            cx.notify();
-                        }
-                    }))));
-                    let canvases = segmented([
-                        ("First Page", PdfCanvas::FirstPage), ("Fit All Pages", PdfCanvas::FitAllPages),
-                    ].map(|(label, choice)| choice_button(label, *canvas == choice).on_click(cx.listener(move |this, _, _, cx| {
-                        if let Some(Form { kind: FormKind::PdfImport { canvas, .. }, .. }) = &mut this.form {
-                            *canvas = choice; cx.notify();
-                        }
-                    }))));
-                    let preview_selection = if *all_pages { None } else { pdf::parse_page_selection(&page_selection.text, info.pages).ok() };
-                    let target_error = preview.as_ref().ok().and_then(|(_, sizes)| self.validate_pdf_target(*target, sizes).err()).map(|error| error.to_string());
-                    can_accept = preview.is_ok() && target_error.is_none();
-                    let estimate = target_error.unwrap_or(estimate);
-                    let settings = div().flex().flex_col().gap_3().min_w_0()
-                        .child(div().child("Pages").child(range.mt_1()).child(fields.mt_2())
-                            .child(div().text_xs().text_color(rgb(MUTED)).mt_1().child("Example: 1, 3-5, 8")))
-                        .child(div().child("Resolution (DPI)").child(self.pdf_input_view(pdf_input::PdfInput::Dpi, dpi, *active == 0, None, cx).mt_1()))
-                        .when(*target == PdfTarget::NewDocument, |body| body.child(div().child("Open as").child(modes.mt_1())))
-                        .child(div().child("Background").child(backgrounds.mt_1()))
-                        .when(*target == PdfTarget::NewDocument && *mode == PdfMode::Layers && info.pages > 1, |body| {
-                            body.child(div().child("Canvas size").child(canvases.mt_1()))
-                        })
-                        .when(matches!(target, PdfTarget::Layers { .. }), |body| body.child(div().text_xs().text_color(rgb(MUTED)).child("Pages are centered on the existing canvas.")));
-                    let columns = div().flex().gap_4().when(!wide, |row| row.flex_col())
-                        .child(settings.when(wide, |settings| settings.w(px(280.)).flex_shrink_0()))
-                        .child(div().flex_1().min_w_0().child(self.pdf_preview_browser(preview_selection.as_deref(), *all_pages, cx)));
-                    let body = div().flex().flex_col().gap_3()
-                        .child(div().text_sm().text_color(rgb(MUTED)).child(format!("{} · {pages}", file_name(path))))
-                        .child(columns)
-                        .child(div().text_xs().text_color(rgb(MUTED)).child(if !*all_pages && page_selection.text.trim().is_empty() {"0 pages selected".to_owned()} else {estimate}))
-                        .when_some(clipping, |body, warning| body.child(div().text_xs().text_color(rgb(0xffd699)).child(warning)));
-                    ("Import PDF", "Import", body)
-                }
-                FormKind::Color {
-                    target, hex, hsv, ..
-                } => {
-                    let color = hsv.rgb();
-                    let recent = div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child(div().text_color(rgb(MUTED)).child("Recent colors"))
-                        .when_else(
-                            self.color_memory.recent.is_empty(),
-                            |row| {
-                                row.child(
+                ]);
+                let fields = self.pdf_input_view(
+                    pdf_input::PdfInput::Pages,
+                    page_selection,
+                    *active == 1,
+                    Some(page_scroll),
+                    cx,
+                );
+                let modes = segmented(
+                    [
+                        ("As Layers", PdfMode::Layers),
+                        ("As Images", PdfMode::Separate),
+                    ]
+                    .map(|(label, choice)| {
+                        choice_button(label, *mode == choice).on_click(cx.listener(
+                            move |this, _, _, cx| {
+                                if let Some(Form {
+                                    kind: FormKind::PdfImport { mode, .. },
+                                    ..
+                                }) = &mut this.form
+                                {
+                                    *mode = choice;
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                    }),
+                );
+                let backgrounds = segmented(
+                    [
+                        ("White", PdfBackground::White),
+                        ("Transparent", PdfBackground::Transparent),
+                    ]
+                    .map(|(label, choice)| {
+                        choice_button(label, *background == choice).on_click(cx.listener(
+                            move |this, _, window, cx| {
+                                if let Some(Form {
+                                    kind: FormKind::PdfImport { background, .. },
+                                    ..
+                                }) = &mut this.form
+                                {
+                                    *background = choice;
+                                    this.set_pdf_preview_background(choice, window, cx);
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                    }),
+                );
+                let canvases = segmented(
+                    [
+                        ("First Page", PdfCanvas::FirstPage),
+                        ("Fit All Pages", PdfCanvas::FitAllPages),
+                    ]
+                    .map(|(label, choice)| {
+                        choice_button(label, *canvas == choice).on_click(cx.listener(
+                            move |this, _, _, cx| {
+                                if let Some(Form {
+                                    kind: FormKind::PdfImport { canvas, .. },
+                                    ..
+                                }) = &mut this.form
+                                {
+                                    *canvas = choice;
+                                    cx.notify();
+                                }
+                            },
+                        ))
+                    }),
+                );
+                let preview_selection = if *all_pages {
+                    None
+                } else {
+                    pdf::parse_page_selection(&page_selection.text, info.pages).ok()
+                };
+                let target_error = preview
+                    .as_ref()
+                    .ok()
+                    .and_then(|(_, sizes)| self.validate_pdf_target(*target, sizes).err())
+                    .map(|error| error.to_string());
+                can_accept = preview.is_ok() && target_error.is_none();
+                let estimate = target_error.unwrap_or(estimate);
+                let settings = div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .min_w_0()
+                    .child(
+                        div()
+                            .child("Pages")
+                            .child(range.mt_1())
+                            .child(fields.mt_2())
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(rgb(MUTED))
+                                    .mt_1()
+                                    .child("Example: 1, 3-5, 8"),
+                            ),
+                    )
+                    .child(
+                        div().child("Resolution (DPI)").child(
+                            self.pdf_input_view(
+                                pdf_input::PdfInput::Dpi,
+                                dpi,
+                                *active == 0,
+                                None,
+                                cx,
+                            )
+                            .mt_1(),
+                        ),
+                    )
+                    .when(*target == PdfTarget::NewDocument, |body| {
+                        body.child(div().child("Open as").child(modes.mt_1()))
+                    })
+                    .child(div().child("Background").child(backgrounds.mt_1()))
+                    .when(
+                        *target == PdfTarget::NewDocument
+                            && *mode == PdfMode::Layers
+                            && info.pages > 1,
+                        |body| body.child(div().child("Canvas size").child(canvases.mt_1())),
+                    )
+                    .when(matches!(target, PdfTarget::Layers { .. }), |body| {
+                        body.child(
+                            div()
+                                .text_xs()
+                                .text_color(rgb(MUTED))
+                                .child("Pages are centered on the existing canvas."),
+                        )
+                    });
+                let columns = div()
+                    .flex()
+                    .gap_4()
+                    .when(!wide, |row| row.flex_col())
+                    .child(settings.when(wide, |settings| settings.w(px(280.)).flex_shrink_0()))
+                    .child(div().flex_1().min_w_0().child(self.pdf_preview_browser(
+                        preview_selection.as_deref(),
+                        *all_pages,
+                        cx,
+                    )));
+                let body = div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(rgb(MUTED))
+                            .child(format!("{} · {pages}", file_name(path))),
+                    )
+                    .child(columns)
+                    .child(div().text_xs().text_color(rgb(MUTED)).child(
+                        if !*all_pages && page_selection.text.trim().is_empty() {
+                            "0 pages selected".to_owned()
+                        } else {
+                            estimate
+                        },
+                    ))
+                    .when_some(clipping, |body, warning| {
+                        body.child(div().text_xs().text_color(rgb(0xffd699)).child(warning))
+                    });
+                ("Import PDF", "Import", body)
+            }
+            FormKind::Color {
+                target, hex, hsv, ..
+            } => {
+                let color = hsv.rgb();
+                let recent = div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child(div().text_color(rgb(MUTED)).child("Recent colors"))
+                    .when_else(
+                        self.color_memory.recent.is_empty(),
+                        |row| {
+                            row.child(
+                                div()
+                                    .h(px(24.))
+                                    .text_xs()
+                                    .text_color(rgb(MUTED))
+                                    .child("Colors you set or sample appear here."),
+                            )
+                        },
+                        |row| {
+                            row.child(div().flex().gap_1().children(
+                                self.color_memory.recent.iter().copied().map(|value| {
                                     div()
-                                        .h(px(24.))
-                                        .text_xs()
-                                        .text_color(rgb(MUTED))
-                                        .child("Colors you set or sample appear here."),
-                                )
-                            },
-                            |row| {
-                                row.child(div().flex().gap_1().children(
-                                    self.color_memory.recent.iter().copied().map(|value| {
-                                        div()
-                                            .id(("recent-color", value as usize))
-                                            .size(px(23.))
-                                            .rounded_sm()
-                                            .border_1()
-                                            .border_color(rgb(if color == value {
-                                                ACCENT
-                                            } else {
-                                                BORDER
-                                            }))
-                                            .bg(rgb(value))
-                                            .cursor_pointer()
-                                            .hover(|chip| chip.border_color(rgb(TEXT)))
-                                            .on_click(cx.listener(move |this, _, _, cx| {
-                                                if let Some(Form {
-                                                    kind: FormKind::Color { hex, hsv, .. },
-                                                    error,
-                                                    ..
-                                                }) = &mut this.form
-                                                {
-                                                    *hex = Field::new(format!("{value:06X}"));
-                                                    *hsv = Hsv::from_rgb(value);
-                                                    *error = None;
-                                                    cx.notify();
-                                                }
-                                            }))
-                                    }),
-                                ))
-                            },
-                        );
-                    let value = div()
+                                        .id(("recent-color", value as usize))
+                                        .size(px(23.))
+                                        .rounded_sm()
+                                        .border_1()
+                                        .border_color(rgb(if color == value {
+                                            ACCENT
+                                        } else {
+                                            BORDER
+                                        }))
+                                        .bg(rgb(value))
+                                        .cursor_pointer()
+                                        .hover(|chip| chip.border_color(rgb(TEXT)))
+                                        .on_click(cx.listener(move |this, _, _, cx| {
+                                            if let Some(Form {
+                                                kind: FormKind::Color { hex, hsv, .. },
+                                                error,
+                                                ..
+                                            }) = &mut this.form
+                                            {
+                                                *hex = Field::new(format!("{value:06X}"));
+                                                *hsv = Hsv::from_rgb(value);
+                                                *error = None;
+                                                cx.notify();
+                                            }
+                                        }))
+                                }),
+                            ))
+                        },
+                    );
+                let value =
+                    div()
                         .flex()
                         .items_end()
                         .gap_3()
@@ -2516,225 +2610,258 @@ impl Workspace {
                                 .border_color(rgb(BORDER))
                                 .bg(rgb(color)),
                         );
-                    let title = match *target {
-                        ColorTarget::Shadow => "Shadow Color",
-                        ColorTarget::Swatch(0) => "Foreground Color",
-                        ColorTarget::Swatch(super::text_ui::TEXT_SWATCH) => "Text Color",
-                        ColorTarget::Swatch(_) => "Background Color",
-                        ColorTarget::GradientStop { .. } => "Gradient Stop Color",
-                    };
-                    (
-                        title,
-                        "Set Color",
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_3()
-                            .child(div().flex().justify_center().child(control(
-                                ColorControl::Wheel,
-                                *hsv,
-                                cx,
-                            )))
-                            .child(div().child("Brightness").child(control(
-                                ColorControl::Brightness,
-                                *hsv,
-                                cx,
-                            )))
-                            .child(value)
-                            .child(recent),
+                let title = match *target {
+                    ColorTarget::Shadow => "Shadow Color",
+                    ColorTarget::Swatch(0) => "Foreground Color",
+                    ColorTarget::Swatch(super::text_ui::TEXT_SWATCH) => "Text Color",
+                    ColorTarget::Swatch(_) => "Background Color",
+                    ColorTarget::GradientStop { .. } => "Gradient Stop Color",
+                };
+                (
+                    title,
+                    "Set Color",
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_3()
+                        .child(div().flex().justify_center().child(control(
+                            ColorControl::Wheel,
+                            *hsv,
+                            cx,
+                        )))
+                        .child(div().child("Brightness").child(control(
+                            ColorControl::Brightness,
+                            *hsv,
+                            cx,
+                        )))
+                        .child(value)
+                        .child(recent),
+                )
+            }
+            FormKind::Scale {
+                width,
+                height,
+                layer,
+                lock,
+                active,
+                resample,
+                ..
+            } => (
+                if *layer { "Scale Layer" } else { "Scale Image" },
+                "Scale",
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(size_fields(width, height, *active, cx))
+                    .child(
+                        form_button("Lock aspect ratio", *lock).on_click(cx.listener(
+                            |this, _, _, cx| {
+                                if let Some(Form {
+                                    kind: FormKind::Scale { lock, .. },
+                                    ..
+                                }) = &mut this.form
+                                {
+                                    *lock = !*lock;
+                                    cx.notify();
+                                }
+                            },
+                        )),
                     )
-                }
-                FormKind::Scale {
-                    width,
-                    height,
-                    layer,
-                    lock,
-                    active,
-                    resample,
-                    ..
-                } => (
-                    if *layer { "Scale Layer" } else { "Scale Image" },
-                    "Scale",
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_3()
-                        .child(size_fields(width, height, *active, cx))
-                        .child(
-                            form_button("Lock aspect ratio", *lock).on_click(cx.listener(
-                                |this, _, _, cx| {
-                                    if let Some(Form {
-                                        kind: FormKind::Scale { lock, .. },
-                                        ..
-                                    }) = &mut this.form
-                                    {
-                                        *lock = !*lock;
-                                        cx.notify();
-                                    }
-                                },
-                            )),
-                        )
-                        .child(resample_choices(*resample, cx)),
-                ),
-                FormKind::Radius { edit, radius } => (
-                    match edit {
-                        MaskEdit::Feather => "Feather Selection",
-                        MaskEdit::Grow => "Grow Selection",
-                        MaskEdit::Shrink => "Shrink Selection",
-                    },
-                    "Apply",
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_1()
-                        .child("Radius (px)")
-                        .child(radius.view(true)),
-                ),
-                FormKind::Canvas {
-                    width,
-                    height,
-                    active,
-                    anchor,
-                } => (
-                    "Canvas Size",
-                    "Resize",
-                    div()
-                        .flex()
-                        .flex_col()
-                        .gap_3()
-                        .child(size_fields(width, height, *active, cx))
-                        .child(anchor_choices(*anchor, cx)),
-                ),
-                FormKind::Adjustment {
-                    operation,
-                    brightness,
-                    contrast,
-                    hue,
-                    saturation,
-                    lightness,
-                    balance_range,
-                    balance,
-                    map_channel,
-                    levels,
-                    curves,
-                    ..
-                } => {
-                    let title = match operation {
-                        AdjustKind::BrightnessContrast => "Brightness & Contrast",
-                        AdjustKind::HueSaturation => "Hue & Saturation",
-                        AdjustKind::Desaturate => "Desaturate",
-                        AdjustKind::Invert => "Invert",
-                        AdjustKind::ColorBalance => "Color Balance",
-                        AdjustKind::Levels => "Levels",
-                        AdjustKind::Curves => "Curves",
-                    };
-                    let mut body = div().flex().flex_col().gap_3();
-                    body = match operation {
-                        AdjustKind::BrightnessContrast => body
-                            .child(adjust_slider(
-                                "Brightness",
-                                brightness.to_string(),
-                                *brightness,
-                                -100,
-                                100,
-                                AdjustSlider::Brightness,
-                                cx,
-                            ))
-                            .child(adjust_slider(
-                                "Contrast",
-                                contrast.to_string(),
-                                *contrast,
-                                -100,
-                                100,
-                                AdjustSlider::Contrast,
-                                cx,
-                            )),
-                        AdjustKind::HueSaturation => body
-                            .child(adjust_slider(
-                                "Hue",
-                                hue.to_string(),
-                                *hue,
-                                -180,
-                                180,
-                                AdjustSlider::Hue,
-                                cx,
-                            ))
-                            .child(adjust_slider(
-                                "Saturation",
-                                saturation.to_string(),
-                                *saturation,
-                                -100,
-                                100,
-                                AdjustSlider::Saturation,
-                                cx,
-                            ))
-                            .child(adjust_slider(
-                                "Lightness",
-                                lightness.to_string(),
-                                *lightness,
-                                -100,
-                                100,
-                                AdjustSlider::Lightness,
-                                cx,
-                            )),
-                        AdjustKind::Desaturate => {
-                            body.child("Removes color from the active layer and keeps its alpha.")
-                        }
-                        AdjustKind::Invert => {
-                            body.child("Inverts the active layer's colors and keeps its alpha.")
-                        }
-                        AdjustKind::ColorBalance => {
-                            color_balance_controls(body, *balance, *balance_range, cx)
-                        }
-                        AdjustKind::Levels => {
-                            levels_controls(body, *levels, *map_channel, adjustment_histogram, cx)
-                        }
-                        AdjustKind::Curves => {
-                            curves_controls(body, *curves, *map_channel, adjustment_histogram, cx)
-                        }
-                    };
-                    let body = effect_dialog_layout(
-                        self.effect_preview_panel(adjustment_preview, self.adjustment_generation.pending(), cx),
-                        body, wide_effect,
-                    );
-                    (title, "Apply", body)
-                }
-                FormKind::Filter {
-                    kind,
-                    radius,
-                    amount,
-                    offset_x,
-                    offset_y,
-                    opacity,
-                    color,
-                } => {
-                    let title = match kind {
-                        FilterKind::Blur => "Blur",
-                        FilterKind::Sharpen => "Sharpen",
-                        FilterKind::Shadow => "Drop Shadow",
-                    };
-                    let controls = div().flex().flex_col().gap_3()
-                        .child(filter_controls(
-                            *kind, *radius, *amount, *offset_x, *offset_y, *opacity, cx,
+                    .child(resample_choices(*resample, cx)),
+            ),
+            FormKind::Radius { edit, radius } => (
+                match edit {
+                    MaskEdit::Feather => "Feather Selection",
+                    MaskEdit::Grow => "Grow Selection",
+                    MaskEdit::Shrink => "Shrink Selection",
+                },
+                "Apply",
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_1()
+                    .child("Radius (px)")
+                    .child(radius.view(true)),
+            ),
+            FormKind::Canvas {
+                width,
+                height,
+                active,
+                anchor,
+            } => (
+                "Canvas Size",
+                "Resize",
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(size_fields(width, height, *active, cx))
+                    .child(anchor_choices(*anchor, cx)),
+            ),
+            FormKind::Adjustment {
+                operation,
+                brightness,
+                contrast,
+                hue,
+                saturation,
+                lightness,
+                balance_range,
+                balance,
+                map_channel,
+                levels,
+                curves,
+                ..
+            } => {
+                let title = match operation {
+                    AdjustKind::BrightnessContrast => "Brightness & Contrast",
+                    AdjustKind::HueSaturation => "Hue & Saturation",
+                    AdjustKind::Desaturate => "Desaturate",
+                    AdjustKind::Invert => "Invert",
+                    AdjustKind::ColorBalance => "Color Balance",
+                    AdjustKind::Levels => "Levels",
+                    AdjustKind::Curves => "Curves",
+                };
+                let mut body = div().flex().flex_col().gap_3();
+                body = match operation {
+                    AdjustKind::BrightnessContrast => body
+                        .child(adjust_slider(
+                            "Brightness",
+                            brightness.to_string(),
+                            *brightness,
+                            -100,
+                            100,
+                            AdjustSlider::Brightness,
+                            cx,
                         ))
-                        .when(*kind == FilterKind::Shadow, |body| body.child(
-                            div().flex().flex_col().gap_2()
-                                .child("Shadow color")
-                                .child(div().flex().items_center().gap_2()
-                                    .child(form_button("Choose Color…", false)
-                                        .flex().items_center().justify_between().gap_2()
-                                        .flex_1()
-                                        .child(div().size(px(20.)).flex_shrink_0().border_1().border_color(rgb(BORDER)).rounded_sm().bg(rgba(u32::from_be_bytes(color.0))))
-                                        .on_click(cx.listener(|this, _, window, cx| this.shadow_color_form(window, cx))))
-                                    .child(form_button("Use Foreground", false).on_click(cx.listener(|this, _, window, cx| this.use_shadow_foreground(window, cx)))))
-                        ));
-                    let body = effect_dialog_layout(
-                        self.effect_preview_panel(filter_preview, self.filter_generation.pending(), cx),
-                        controls, wide_effect,
-                    );
-                    (title, "Apply", body)
-                }
-            };
+                        .child(adjust_slider(
+                            "Contrast",
+                            contrast.to_string(),
+                            *contrast,
+                            -100,
+                            100,
+                            AdjustSlider::Contrast,
+                            cx,
+                        )),
+                    AdjustKind::HueSaturation => body
+                        .child(adjust_slider(
+                            "Hue",
+                            hue.to_string(),
+                            *hue,
+                            -180,
+                            180,
+                            AdjustSlider::Hue,
+                            cx,
+                        ))
+                        .child(adjust_slider(
+                            "Saturation",
+                            saturation.to_string(),
+                            *saturation,
+                            -100,
+                            100,
+                            AdjustSlider::Saturation,
+                            cx,
+                        ))
+                        .child(adjust_slider(
+                            "Lightness",
+                            lightness.to_string(),
+                            *lightness,
+                            -100,
+                            100,
+                            AdjustSlider::Lightness,
+                            cx,
+                        )),
+                    AdjustKind::Desaturate => {
+                        body.child("Removes color from the active layer and keeps its alpha.")
+                    }
+                    AdjustKind::Invert => {
+                        body.child("Inverts the active layer's colors and keeps its alpha.")
+                    }
+                    AdjustKind::ColorBalance => {
+                        color_balance_controls(body, *balance, *balance_range, cx)
+                    }
+                    AdjustKind::Levels => {
+                        levels_controls(body, *levels, *map_channel, adjustment_histogram, cx)
+                    }
+                    AdjustKind::Curves => {
+                        curves_controls(body, *curves, *map_channel, adjustment_histogram, cx)
+                    }
+                };
+                let body = effect_dialog_layout(
+                    self.effect_preview_panel(
+                        adjustment_preview,
+                        self.adjustment_generation.pending(),
+                        cx,
+                    ),
+                    body,
+                    wide_effect,
+                );
+                (title, "Apply", body)
+            }
+            FormKind::Filter {
+                kind,
+                radius,
+                amount,
+                offset_x,
+                offset_y,
+                opacity,
+                color,
+            } => {
+                let title = match kind {
+                    FilterKind::Blur => "Blur",
+                    FilterKind::Sharpen => "Sharpen",
+                    FilterKind::Shadow => "Drop Shadow",
+                };
+                let controls = div()
+                    .flex()
+                    .flex_col()
+                    .gap_3()
+                    .child(filter_controls(
+                        *kind, *radius, *amount, *offset_x, *offset_y, *opacity, cx,
+                    ))
+                    .when(*kind == FilterKind::Shadow, |body| {
+                        body.child(
+                            div().flex().flex_col().gap_2().child("Shadow color").child(
+                                div()
+                                    .flex()
+                                    .items_center()
+                                    .gap_2()
+                                    .child(
+                                        form_button("Choose Color…", false)
+                                            .flex()
+                                            .items_center()
+                                            .justify_between()
+                                            .gap_2()
+                                            .flex_1()
+                                            .child(
+                                                div()
+                                                    .size(px(20.))
+                                                    .flex_shrink_0()
+                                                    .border_1()
+                                                    .border_color(rgb(BORDER))
+                                                    .rounded_sm()
+                                                    .bg(rgba(u32::from_be_bytes(color.0))),
+                                            )
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.shadow_color_form(window, cx)
+                                            })),
+                                    )
+                                    .child(form_button("Use Foreground", false).on_click(
+                                        cx.listener(|this, _, window, cx| {
+                                            this.use_shadow_foreground(window, cx)
+                                        }),
+                                    )),
+                            ),
+                        )
+                    });
+                let body = effect_dialog_layout(
+                    self.effect_preview_panel(filter_preview, self.filter_generation.pending(), cx),
+                    controls,
+                    wide_effect,
+                );
+                (title, "Apply", body)
+            }
+        };
 
         Some(
             div()

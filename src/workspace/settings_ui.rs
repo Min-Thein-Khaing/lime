@@ -132,6 +132,7 @@ pub(super) struct Preferences {
     pub(super) path_stroke_style: stroke_ui::PathStrokeStyle,
     pub(super) text_defaults: text_ui::TextDefaults,
     pub(super) pdf_preferences: pdf_ui::PdfPreferences,
+    pub(super) export_type: super::files::ExportType,
     pub(super) jpeg_quality: u8,
     pub(super) pdf_export_dpi: u32,
     pub(super) toolbox_width: f32,
@@ -188,6 +189,7 @@ impl Default for Preferences {
             path_stroke_style: stroke_ui::PathStrokeStyle::Brush,
             text_defaults: text_ui::TextDefaults::default(),
             pdf_preferences: Default::default(),
+            export_type: Default::default(),
             jpeg_quality: DEFAULT_JPEG_QUALITY,
             pdf_export_dpi: crate::pdf::export::DEFAULT_DPI,
             toolbox_width: view::TOOLBOX_DEFAULT_WIDTH,
@@ -200,6 +202,33 @@ impl Default for Preferences {
 }
 
 impl Preferences {
+    /// Called only after the export writer succeeds, never for dialog drafts.
+    pub(super) fn remember_export(&mut self, format: super::files::ExportFormat) {
+        use super::files::{ExportFormat, ExportType};
+        match format {
+            ExportFormat::Raster {
+                format,
+                jpeg_quality,
+            } => {
+                self.export_type = match format {
+                    crate::document::FileFormat::Png => ExportType::Png,
+                    crate::document::FileFormat::Jpeg => {
+                        self.jpeg_quality = jpeg_quality;
+                        ExportType::Jpeg
+                    }
+                    crate::document::FileFormat::WebP => ExportType::WebP,
+                    crate::document::FileFormat::Project => {
+                        unreachable!("projects are never exported")
+                    }
+                };
+            }
+            ExportFormat::Pdf { dpi } => {
+                self.export_type = ExportType::Pdf;
+                self.pdf_export_dpi = dpi;
+            }
+        }
+    }
+
     /// Inline numeric previews and a toolbox resize become preferences only
     /// after their normal commit. Other settings can still save meanwhile.
     fn committed(
@@ -735,6 +764,7 @@ pub(super) mod tests {
         value["text_defaults"] = json!({"family":"serif","face":{"bold":true,"italic":true},"size":47.5,"spacing":{"letter":2.25,"line":1.5},"layout":{"width":240,"height":160,"align":"center"}});
         value["pdf_preferences"] =
             json!({"dpi":240,"mode":"Separate","background":"Transparent","canvas":"FitAllPages"});
+        value["export_type"] = json!("jpeg");
         value["jpeg_quality"] = json!(81);
         value["pdf_export_dpi"] = json!(360);
         value["toolbox_width"] = json!(225.5);

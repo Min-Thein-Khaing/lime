@@ -305,6 +305,7 @@ mod tests {
             "gradient_presets_expanded",
             "tool_sections",
             "pdf_preferences",
+            "export_type",
             "jpeg_quality",
             "pdf_export_dpi",
             "effects",

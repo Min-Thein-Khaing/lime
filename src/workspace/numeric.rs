@@ -301,7 +301,7 @@ struct NumericGeometry {
 
 pub(super) enum NumericFollowup {
     Key(Keystroke),
-    PdfExport,
+    Export,
     SelectionRadius(i32),
     Focus(NumericField),
     Effect {
@@ -970,8 +970,8 @@ impl Workspace {
                             this.nudge_selection_radius(delta, window, cx);
                             None
                         }
-                        NumericFollowup::PdfExport => {
-                            this.pdf_export_form(window, cx);
+                        NumericFollowup::Export => {
+                            this.export_form(window, cx);
                             None
                         }
                         NumericFollowup::FitLayer { layer } => {
@@ -1491,14 +1491,14 @@ mod tests {
     }
 
     #[test]
-    fn pdf_export_waits_for_a_geometry_commit_and_preserves_its_saved_revision() {
+    fn export_waits_for_a_geometry_commit_and_preserves_its_saved_revision() {
         let mut tab = super::super::tests::opacity_tab();
         let id = tab.id;
         let generation = tab.history.generation();
         let pending = PendingNumeric {
             tab: id,
             generation,
-            followup: NumericFollowup::PdfExport,
+            followup: NumericFollowup::Export,
         };
         let mut state = tab.state();
         let pixels = state

@@ -8,10 +8,7 @@ actions!(
         SaveImage,
         SaveImageAs,
         SaveProjectAs,
-        ExportPng,
-        ExportJpeg,
-        ExportWebp,
-        ExportPdf,
+        ExportImage,
         Undo,
         Redo,
         NewLayer,
@@ -529,7 +526,7 @@ pub fn register(cx: &mut App) {
         KeyBinding::new(&format!("{primary}-="), ZoomIn, None),
         KeyBinding::new(&format!("{primary}--"), ZoomOut, None),
         KeyBinding::new(&format!("{primary}-alt-s"), SaveProjectAs, None),
-        KeyBinding::new(&format!("{primary}-shift-e"), ExportPng, None),
+        KeyBinding::new(&format!("{primary}-shift-e"), ExportImage, None),
         KeyBinding::new(&format!("{primary}-shift-n"), NewLayer, None),
         KeyBinding::new(&format!("{primary}-shift-d"), DuplicateLayer, None),
         KeyBinding::new(&format!("{primary}-shift-j"), Zoom::Fit, None),
@@ -718,10 +715,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
         MenuItem::action("Save As…", SaveImageAs),
         MenuItem::action("Save Project As…", SaveProjectAs),
         MenuItem::separator(),
-        MenuItem::action("Export as PNG…", ExportPng),
-        MenuItem::action("Export as JPEG…", ExportJpeg),
-        MenuItem::action("Export as WebP…", ExportWebp),
-        MenuItem::action("Export as PDF…", ExportPdf),
+        MenuItem::action("Export…", ExportImage),
     ];
     if !macos {
         file.extend([MenuItem::separator(), MenuItem::action("Exit", Quit)]);
@@ -1148,10 +1142,7 @@ mod tests {
             "Save",
             "Save As…",
             "Save Project As…",
-            "Export as PNG…",
-            "Export as JPEG…",
-            "Export as WebP…",
-            "Export as PDF…",
+            "Export…",
             "menu:Edit",
             "Undo",
             "Redo",
@@ -1327,7 +1318,7 @@ mod tests {
             .collect();
         let export = expected_windows
             .iter()
-            .position(|label| *label == "Export as PDF…")
+            .position(|label| *label == "Export…")
             .unwrap();
         expected_windows.insert(export + 1, "Exit");
         expected_windows.extend(["menu:Help", "About Lime", "Check for Updates…"]);

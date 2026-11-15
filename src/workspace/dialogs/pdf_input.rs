@@ -40,7 +40,13 @@ fn text_hit_x(pointer: Pixels, left: Pixels, scroll_offset: Pixels) -> Pixels {
 
 fn input_field(kind: &mut FormKind, input: PdfInput) -> Option<&mut Field> {
     match kind {
-        FormKind::PdfExport { dpi, .. } if matches!(input, PdfInput::Dpi) => Some(dpi),
+        FormKind::Export(draft)
+            if draft.format == crate::workspace::files::ExportType::Pdf
+                && matches!(input, PdfInput::Dpi) =>
+        {
+            draft.option_active = true;
+            Some(&mut draft.dpi)
+        }
         FormKind::PdfImport {
             dpi,
             page_selection,

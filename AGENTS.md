@@ -515,8 +515,17 @@ numeric positions and arrow nudges bypass snapping. Grid spacing (1–4096 px) a
 overlay/snap preferences persist across restarts. Save and Save As handle
 Lime (`.lime`) projects (legacy `.imageedit` files remain readable),
 PNG, JPEG, and WebP. A project stores the layer stack, paths, guides, and text with lossless pixels.
-Export writes flattened PNG, JPEG, WebP, or single-page PDF copies to a separate destination
-and preserves the tab’s saved state. PDF exports the complete current canvas as a
+File → Export… (Cmd/Ctrl+Shift+E) opens one shared dialog with visible PNG,
+JPEG, WebP, and PDF choices, then the native destination picker. Export writes a
+flattened copy to a separate destination and preserves the tab’s saved state.
+The dialog starts with PNG and remembers the last successfully written format
+and that format's relevant JPEG quality/PDF DPI across tabs and restarts.
+Draft format/option edits, cancellation of either dialog, rejected destinations,
+and failed writes never update preferences. PNG/WebP ignore hidden quality/DPI
+fields. Left/Right changes the focused format; Tab switches between the format
+row and its applicable option field. Format clicks preserve other option drafts.
+`src/workspace/dialogs/export.rs` owns this form; the existing file writers remain
+shared across platforms. PDF exports the complete current canvas as a
 lossless RGB image over white with embedded sRGB. Its dialog shows physical page
 size and accepts 1–1200 DPI (300 initially, remembered across restarts), with a
 canvas-dependent minimum to stay within 200 inches per page edge. DPI changes
@@ -524,8 +533,8 @@ page size without resampling. Layers and text are flattened; multipage, paper
 layouts, searchable text, and vector output are deferred. `src/pdf/export.rs`
 uses `pdf-writer` and row-wise Deflate compression; `document::export_pdf` shares
 atomic writes and the workspace's existing background export route and pending
-edit checks. The PDF menu finishes inline geometry before text and defers through
-`NumericFollowup::PdfExport` when its background commit must land first, validating
+edit checks. The Export command finishes inline geometry before text and defers through
+`NumericFollowup::Export` when its background commit must land first, validating
 tab and generation before reopening. PDF filenames stay excluded from `save_format`.
 Raster Save is offered only while a
 document is a single plain layer without paths, guides, or editable text.
@@ -938,7 +947,7 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   and reversible guide drafts scoped to tab/revision. Guide commits refresh no
   pixels/thumbnails; per-tab pending guides bridge asynchronous publication so
   release does not flash the old position. History accounts for owned guide data.
-  `src/workspace/dialogs.rs` renders the canvas dimensions, color, JPEG quality,
+  `src/workspace/dialogs.rs` renders the canvas dimensions, color, unified export,
   layer, adjustment, and filter dialogs. Two-choice dialog groups reuse
   `view::segmented` and `choice_button`, including PDF choices, New Image
   background, and Before/After comparison. Navigation buttons share the form

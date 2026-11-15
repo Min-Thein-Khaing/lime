@@ -61,7 +61,8 @@ Use the reset arrow in **Tool Options** or **Tools → Reset Current Tool** to r
 that tool's defaults. **Tools → Reset All Tool Settings…** resets every tool after
 confirmation. Resets preserve artwork, colors, and saved gradient presets.
 
-Save as **`.lime`** to keep layers and editable content. Use **Export** for a
-flattened PNG, JPEG, WebP, or PDF copy.
+Save as **`.lime`** to keep layers and editable content. Use **File → Export…**
+(**Cmd/Ctrl+Shift+E**) for a flattened copy. Choose PNG, JPEG, WebP, or PDF in the
+export dialog; Lime remembers your last successful format and options.
 
 [Report a problem or suggest a feature](https://github.com/eimg/lime/issues).

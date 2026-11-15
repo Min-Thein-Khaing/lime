@@ -52,7 +52,7 @@ pub(crate) fn for_action(action: &dyn Action) -> Option<&'static str> {
     icons! {
         NewImage => "new", OpenImage => "folder", OpenAsLayers => "folder",
         SaveImage => "save", SaveImageAs => "save", SaveProjectAs => "save",
-        ExportPng => "export", ExportJpeg => "export", ExportWebp => "export", ExportPdf => "export",
+        ExportImage => "export",
         Undo => "undo", Redo => "redo", CutImage => "cut", CopyImage => "duplicate",
         PasteImage => "paste", PasteAsLayer => "paste", NewFromClipboard => "paste",
         NewLayer => "plus", DuplicateLayer => "duplicate", DeleteLayer => "trash",

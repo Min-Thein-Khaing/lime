@@ -16,20 +16,20 @@ use crate::commands::{
     AlignLayer, ApplyCrop, ApplyGradient, ApplyTransform, BackgroundColor, BrushSizeDown,
     BrushSizeUp, CancelCrop, CancelFreeSelect, CancelGradient, CancelMove, CancelPath,
     CancelStroke, CancelTransform, CloseFreeSelect, ClosePath, CloseTab, DeletePathAnchor,
-    ExportJpeg, ExportPdf, ExportPng, ExportWebp, FeatherSelection, ForegroundColor, GrowSelection,
-    InvertSelection, MinimizeWindow, NEW_HINT, NewImage, NextTab, NudgeLayer, OPEN_HINT, OpenImage,
-    PreviousTab, Redo, ResetColors, ResetCurrentTool, SaveImage, SaveImageAs, SaveProjectAs,
-    SelectNone, SelectTool, ShrinkSelection, SwapColors, TOOL_GROUPS, ToggleGrid, ToggleGuides,
-    ToggleLayerBoundary, ToggleRightSidebar, ToggleSnapGrid, ToggleSnapGuides, ToggleToolOptions,
-    Tool, Undo, Zoom, ZoomIn, ZoomOut, ZoomWindow,
+    ExportImage, FeatherSelection, ForegroundColor, GrowSelection, InvertSelection, MinimizeWindow,
+    NEW_HINT, NewImage, NextTab, NudgeLayer, OPEN_HINT, OpenImage, PreviousTab, Redo, ResetColors,
+    ResetCurrentTool, SaveImage, SaveImageAs, SaveProjectAs, SelectNone, SelectTool,
+    ShrinkSelection, SwapColors, TOOL_GROUPS, ToggleGrid, ToggleGuides, ToggleLayerBoundary,
+    ToggleRightSidebar, ToggleSnapGrid, ToggleSnapGuides, ToggleToolOptions, Tool, Undo, Zoom,
+    ZoomIn, ZoomOut, ZoomWindow,
 };
-use crate::document::{CropRect, DrawnTile, FileFormat};
+use crate::document::{CropRect, DrawnTile};
 use crate::preview;
 use crate::transform::{Mirror, Resample};
 
 use super::canvas_tools::PreviewGeometry;
 use super::cursor::CanvasCursor;
-use super::files::{ExportFormat, SaveMode};
+use super::files::SaveMode;
 use super::numeric::NumericField;
 use super::settings_ui::ToolSection;
 use super::tooltip::{help_icon, tooltip, tooltip_with_detail};
@@ -257,32 +257,11 @@ impl Render for Workspace {
                     .on_action(cx.listener(|this, _: &SaveProjectAs, window, cx| {
                         this.save(SaveMode::ProjectAs, window, cx)
                     }))
-                    .on_action(cx.listener(|this, _: &ExportPng, window, cx| {
-                        this.export(
-                            ExportFormat::Raster {
-                                format: FileFormat::Png,
-                                jpeg_quality: 0,
-                            },
-                            window,
-                            cx,
-                        )
-                    }))
                     .on_action(
-                        cx.listener(|this, _: &ExportJpeg, window, cx| this.jpeg_form(window, cx)),
+                        cx.listener(|this, _: &ExportImage, window, cx| {
+                            this.export_form(window, cx)
+                        }),
                     )
-                    .on_action(cx.listener(|this, _: &ExportWebp, window, cx| {
-                        this.export(
-                            ExportFormat::Raster {
-                                format: FileFormat::WebP,
-                                jpeg_quality: 0,
-                            },
-                            window,
-                            cx,
-                        )
-                    }))
-                    .on_action(cx.listener(|this, _: &ExportPdf, window, cx| {
-                        this.pdf_export_form(window, cx)
-                    }))
                     .when(self.preferences.tool == Tool::Crop, |root| {
                         root.key_context("Crop")
                             .when(self.crop.is_some() && self.crop_drag.is_none(), |root| {

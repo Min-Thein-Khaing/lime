@@ -28,7 +28,30 @@ enum WriteKind {
     Export(ExportFormat),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum ExportType {
+    #[default]
+    Png,
+    Jpeg,
+    WebP,
+    Pdf,
+}
+
+impl ExportType {
+    pub(super) const ALL: [Self; 4] = [Self::Png, Self::Jpeg, Self::WebP, Self::Pdf];
+
+    pub(super) fn label(self) -> &'static str {
+        match self {
+            Self::Png => "PNG",
+            Self::Jpeg => "JPEG",
+            Self::WebP => "WebP",
+            Self::Pdf => "PDF",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ExportFormat {
     Raster {
         format: FileFormat,
@@ -406,8 +429,9 @@ impl Workspace {
                         tab.history.mark_saved(revision);
                         workspace.update_title(window);
                     }
-                    (WriteKind::Export(_), Ok(())) => {
+                    (WriteKind::Export(format), Ok(())) => {
                         tab.notice = Some(format!("Exported {name}"));
+                        workspace.preferences.remember_export(format);
                     }
                     (WriteKind::Save(_), Err(error)) => workspace
                         .errors
