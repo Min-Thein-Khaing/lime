@@ -266,6 +266,75 @@ impl DocumentContent {
         }))
     }
 
+    /// Coverage of the layer itself, independent of visibility and layer opacity.
+    /// Enabled masks participate; hidden RGB and off-canvas pixels do not.
+    pub fn alpha_selection(&self, id: LayerId) -> Option<Selection> {
+        let layer = self.layer(id)?;
+        Some(Selection::from_coverage(self.width, self.height, |x, y| {
+            let x = i64::from(x) - i64::from(layer.offset.0);
+            let y = i64::from(y) - i64::from(layer.offset.1);
+            if x < 0
+                || y < 0
+                || x >= i64::from(layer.pixels.width())
+                || y >= i64::from(layer.pixels.height())
+            {
+                0
+            } else {
+                layer.masked(
+                    *layer.pixels.get_pixel(x as u32, y as u32),
+                    x as u32,
+                    y as u32,
+                )[3]
+            }
+        }))
+    }
+
+    pub fn can_insert_path_text(&self, source: LayerId, size: (u32, u32)) -> bool {
+        self.layer(source)
+            .is_some_and(|layer| layer.visible && layer.text.is_some())
+            && self.can_add_layer()
+            && self.next_layer_id().is_some()
+            && (1..=super::MAX_NEW_EDGE).contains(&size.0)
+            && (1..=super::MAX_NEW_EDGE).contains(&size.1)
+            && self.fits_stack(0, u64::from(size.0) * u64::from(size.1) * 4)
+    }
+
+    /// Publish the new raster and hide its source together. No links or locks
+    /// are inherited; the source's opacity and blend mode retain its appearance.
+    pub fn insert_path_text(
+        &mut self,
+        source: LayerId,
+        offset: (i32, i32),
+        pixels: RgbaImage,
+    ) -> Option<LayerId> {
+        if !self.can_insert_path_text(source, pixels.dimensions()) {
+            return None;
+        }
+        let index = self.layer_index(source)?;
+        let id = self.next_layer_id()?;
+        let layer = &self.layers[index];
+        let name = format!("{} along path", layer.name)
+            .chars()
+            .take(MAX_LAYER_NAME_CHARS)
+            .collect();
+        let result = RasterLayer {
+            id,
+            name,
+            pixels: Arc::new(self.mode.constrain_image(pixels)),
+            offset,
+            visible: true,
+            opacity: layer.opacity,
+            blend_mode: layer.blend_mode,
+            locks: Default::default(),
+            text: None,
+            mask: None,
+            effect: None,
+        };
+        self.layers[index].visible = false;
+        self.layers.insert(index + 1, result);
+        Some(id)
+    }
+
     pub fn place_layer_with_mask(
         &mut self,
         id: LayerId,
@@ -1566,7 +1635,8 @@ impl DocumentContent {
                 }
                 (radius, Some(amount))
             }
-            crate::filters::FilterSpec::Shadow { .. } => return Dirty::None,
+            crate::filters::FilterSpec::Shadow { .. }
+            | crate::filters::FilterSpec::Stroke { .. } => return Dirty::None,
         };
         if radius == 0 {
             return Dirty::None;
@@ -1616,38 +1686,54 @@ impl DocumentContent {
         id: LayerId,
         spec: crate::filters::FilterSpec,
     ) -> Result<PixelRect, crate::filters::FilterStop> {
-        if self.layer_is_text(id) {
+        if !matches!(spec, crate::filters::FilterSpec::Shadow { .. }) {
             return Err(crate::filters::FilterStop::Unchanged);
         }
-        let crate::filters::FilterSpec::Shadow {
-            radius,
-            offset,
-            opacity,
-            color,
-        } = spec
-        else {
-            return Err(crate::filters::FilterStop::Unchanged);
-        };
-        if opacity == 0 {
+        self.place_layer_filter(id, spec)
+    }
+
+    pub fn place_layer_filter(
+        &mut self,
+        id: LayerId,
+        spec: crate::filters::FilterSpec,
+    ) -> Result<PixelRect, crate::filters::FilterStop> {
+        if !spec.supports_text() || spec.is_identity() {
             return Err(crate::filters::FilterStop::Unchanged);
         }
         let Some(index) = self.layer_index(id) else {
             return Err(crate::filters::FilterStop::Unchanged);
         };
         let rect = self
-            .drop_shadow_bounds(id, radius, offset)
+            .layer_filter_bounds(id, spec)
             .ok_or(crate::filters::FilterStop::TooLarge)?;
-        let color = self.mode.constrain(color);
         let source = &self.layers[index];
         let pixels = RgbaImage::from_fn(source.pixels.width(), source.pixels.height(), |x, y| {
             source.masked(*source.pixels.get_pixel(x, y), x, y)
         });
-        let Some(shadow) = crate::filters::render_shadow(&pixels, radius, opacity, color) else {
-            return Err(crate::filters::FilterStop::Unchanged);
+        let (name, rendered) = match spec {
+            crate::filters::FilterSpec::Shadow {
+                radius,
+                opacity,
+                color,
+                ..
+            } => (
+                "Drop Shadow",
+                crate::filters::render_shadow(&pixels, radius, opacity, self.mode.constrain(color)),
+            ),
+            crate::filters::FilterSpec::Stroke {
+                width,
+                opacity,
+                color,
+            } => (
+                "Stroke",
+                crate::filters::render_stroke(&pixels, width, opacity, self.mode.constrain(color)),
+            ),
+            _ => return Err(crate::filters::FilterStop::Unchanged),
         };
-        let pixels = self.mode.constrain_image(shadow.pixels);
+        let generated = rendered.ok_or(crate::filters::FilterStop::Unchanged)?;
+        let pixels = self.mode.constrain_image(generated.pixels);
         let layer_offset = (rect.x as i32, rect.y as i32);
-        let Some(shadow_id) = self.next_layer_id() else {
+        let Some(generated_id) = self.next_layer_id() else {
             return Err(crate::filters::FilterStop::TooLarge);
         };
         let rect = PixelRect::new(
@@ -1661,8 +1747,8 @@ impl DocumentContent {
             RasterLayer {
                 effect: None,
                 mask: None,
-                id: shadow_id,
-                name: "Drop Shadow".into(),
+                id: generated_id,
+                name: name.into(),
                 pixels: Arc::new(pixels),
                 offset: layer_offset,
                 visible: true,
@@ -1672,30 +1758,49 @@ impl DocumentContent {
                 text: None,
             },
         );
-        self.shadow_attachments.push((shadow_id, id));
+        self.shadow_attachments.push((generated_id, id));
         Ok(rect)
     }
 
-    pub fn drop_shadow_fits(&self, id: LayerId, radius: u32, offset: (i32, i32)) -> bool {
-        self.drop_shadow_bounds(id, radius, offset).is_some()
+    pub fn layer_filter_fits(&self, id: LayerId, spec: crate::filters::FilterSpec) -> bool {
+        self.layer_filter_bounds(id, spec).is_some()
     }
 
-    fn drop_shadow_bounds(
+    fn layer_filter_bounds(
         &self,
         id: LayerId,
-        radius: u32,
-        offset: (i32, i32),
+        spec: crate::filters::FilterSpec,
     ) -> Option<PixelRect> {
         let layer = self.layer(id)?;
-        let (width, height) =
-            crate::filters::shadow_dimensions(layer.pixels.width(), layer.pixels.height(), radius)?;
+        let (pad, offset, dimensions) = match spec {
+            crate::filters::FilterSpec::Shadow { radius, offset, .. } => (
+                crate::filters::kernel_support(radius),
+                offset,
+                crate::filters::shadow_dimensions(
+                    layer.pixels.width(),
+                    layer.pixels.height(),
+                    radius,
+                )?,
+            ),
+            crate::filters::FilterSpec::Stroke { width, .. } => (
+                width,
+                (0, 0),
+                crate::filters::stroke_dimensions(
+                    layer.pixels.width(),
+                    layer.pixels.height(),
+                    width,
+                )?,
+            ),
+            _ => return None,
+        };
+        let (width, height) = dimensions;
         let bytes = u64::from(width)
             .checked_mul(u64::from(height))?
             .checked_mul(4)?;
         if !self.can_add_layer() || !self.fits_stack(0, bytes) {
             return None;
         }
-        let pad = i64::from(crate::filters::kernel_support(radius));
+        let pad = i64::from(pad);
         let x = i64::from(layer.offset.0) - pad + i64::from(offset.0);
         let y = i64::from(layer.offset.1) - pad + i64::from(offset.1);
         i32::try_from(x).ok()?;
@@ -4251,7 +4356,7 @@ mod tests {
         assert!(content.place_drop_shadow(id, spec).is_err());
         assert_eq!(content.layers.len(), 1);
         content.layers[0].offset = (i32::MAX, 0);
-        assert!(!content.drop_shadow_fits(id, 1, (20, 0)));
+        assert!(!content.layer_filter_fits(id, spec));
         assert!(content.place_drop_shadow(id, spec).is_err());
         assert_eq!(content.layers.len(), 1);
     }
@@ -4569,6 +4674,148 @@ mod tests {
             content.place_drop_shadow(id, spec),
             Err(FilterStop::TooLarge)
         );
+    }
+
+    #[test]
+    fn text_drop_shadow_preserves_text_and_stays_frozen_after_edits() {
+        use crate::filters::FilterSpec;
+
+        let mut content = DocumentContent::single_layer("Text".into(), RgbaImage::new(96, 64));
+        let id = content.top_layer_id();
+        let rendered =
+            crate::text::render("Hi", "sans-serif", 24.0, Rgba([220, 40, 0, 255])).unwrap();
+        assert_ne!(content.set_text(id, (8, 10), rendered), Dirty::None);
+        let source = content.layer(id).unwrap().clone();
+        let spec = FilterSpec::Shadow {
+            radius: 2,
+            offset: (3, 4),
+            opacity: 80,
+            color: Rgba([10, 20, 60, 255]),
+        };
+        let preview =
+            crate::effect_preview::EffectPreview::new(content.clone(), id, Selection::Empty, 256);
+        let expected = preview.filter(spec);
+        // Preview capture leaves the editable source alone.
+        assert_eq!(content.layers().len(), 1);
+        assert!(content.layer_filter_fits(id, spec));
+        content.place_drop_shadow(id, spec).unwrap();
+        assert_eq!(expected, *content.composite());
+        assert_eq!(content.layers[1].id, id);
+        assert_eq!(content.layer(id).unwrap().text, source.text);
+        assert!(Arc::ptr_eq(
+            &content.layer(id).unwrap().pixels,
+            &source.pixels
+        ));
+        let shadow = content.layers[0].clone();
+        assert_eq!(content.shadow_source(shadow.id), Some(id));
+        assert!(shadow.text.is_none());
+        assert!(shadow.pixels.pixels().any(|pixel| pixel[3] != 0));
+
+        let mut bytes = Vec::new();
+        crate::project::write(&mut bytes, &content).unwrap();
+        let mut content = crate::project::read(std::io::Cursor::new(bytes)).unwrap();
+        assert_eq!(content.layer(id).unwrap().text, source.text);
+        assert_eq!(content.layer(id).unwrap().pixels, source.pixels);
+        assert_eq!(content.shadow_source(shadow.id), Some(id));
+        assert_eq!(content.layer(shadow.id).unwrap().pixels, shadow.pixels);
+
+        let replacement =
+            crate::text::render("Edited", "sans-serif", 18.0, Rgba([0, 90, 0, 255])).unwrap();
+        assert_ne!(content.set_text(id, (8, 10), replacement), Dirty::None);
+        assert_eq!(
+            content.layer(id).unwrap().text.as_ref().unwrap().source,
+            "Edited"
+        );
+        assert_eq!(content.layer(shadow.id).unwrap().pixels, shadow.pixels);
+        assert_eq!(content.layer(shadow.id).unwrap().offset, shadow.offset);
+        let offset = content.layer(id).unwrap().offset;
+        assert_ne!(
+            content.move_linked_layers(id, (offset.0 + 5, offset.1 - 2)),
+            Dirty::None
+        );
+        assert_eq!(
+            content.layer(shadow.id).unwrap().offset,
+            (shadow.offset.0 + 5, shadow.offset.1 - 2)
+        );
+    }
+
+    #[test]
+    fn outside_stroke_supports_masked_raster_and_editable_text_and_round_trips() {
+        use crate::filters::FilterSpec;
+        for text in [false, true] {
+            for mode in [
+                crate::transform::ColorMode::Rgb,
+                crate::transform::ColorMode::Grayscale,
+            ] {
+                let mut content = DocumentContent::single_layer(
+                    "Source".into(),
+                    RgbaImage::from_pixel(64, 48, Rgba([90, 20, 40, 180])),
+                );
+                let id = content.top_layer_id();
+                if text {
+                    content.set_text(
+                        id,
+                        (8, 8),
+                        crate::text::render("Hi", "sans-serif", 24.0, Rgba([30, 90, 20, 255]))
+                            .unwrap(),
+                    );
+                } else {
+                    content
+                        .mask_from_selection(id, &Selection::rectangle((6, 6), (20, 20), 64, 48));
+                }
+                content.set_color_mode(mode);
+                content.set_opacity(id, 120);
+                let source = content.layer(id).unwrap().clone();
+                let spec = FilterSpec::Stroke {
+                    width: 3,
+                    opacity: 81,
+                    color: Rgba([200, 30, 40, 255]),
+                };
+                let preview = crate::effect_preview::EffectPreview::new(
+                    content.clone(),
+                    id,
+                    Selection::Empty,
+                    256,
+                );
+                assert!(content.layer_filter_fits(id, spec));
+                content.place_layer_filter(id, spec).unwrap();
+                assert_eq!(preview.filter(spec), *content.composite());
+                let stroke = content.layers[0].clone();
+                assert_eq!(stroke.name, "Stroke");
+                assert_eq!(content.layers[1].id, id);
+                assert_eq!(content.shadow_source(stroke.id), Some(id));
+                assert_eq!(content.layer(id).unwrap().text, source.text);
+                assert!(Arc::ptr_eq(
+                    &content.layer(id).unwrap().pixels,
+                    &source.pixels
+                ));
+                let mut bytes = Vec::new();
+                crate::project::write(&mut bytes, &content).unwrap();
+                let mut restored = crate::project::read(std::io::Cursor::new(bytes)).unwrap();
+                assert_eq!(restored.shadow_source(stroke.id), Some(id));
+                assert_eq!(restored.layer(stroke.id).unwrap().pixels, stroke.pixels);
+                if text {
+                    restored.set_text(
+                        id,
+                        (8, 8),
+                        crate::text::render("Edit", "sans-serif", 18.0, Rgba([0, 0, 0, 255]))
+                            .unwrap(),
+                    );
+                    assert_eq!(restored.layer(stroke.id).unwrap().pixels, stroke.pixels);
+                    assert_eq!(restored.layer(stroke.id).unwrap().offset, stroke.offset);
+                }
+                let offset = restored.layer(id).unwrap().offset;
+                restored.move_linked_layers(id, (offset.0 + 4, offset.1 - 2));
+                assert_eq!(
+                    restored.layer(stroke.id).unwrap().offset,
+                    (stroke.offset.0 + 4, stroke.offset.1 - 2)
+                );
+                restored.layers[1].offset = (i32::MIN, 0);
+                assert!(!restored.layer_filter_fits(id, spec));
+                assert!(restored.place_layer_filter(id, spec).is_err());
+                assert_eq!(restored.layers.len(), 2);
+            }
+        }
     }
 
     #[test]

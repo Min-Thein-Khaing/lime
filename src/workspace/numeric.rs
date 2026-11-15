@@ -302,6 +302,11 @@ struct NumericGeometry {
 pub(super) enum NumericFollowup {
     Key(Keystroke),
     Export,
+    TextOperation {
+        along_path: bool,
+        layer: crate::document::LayerId,
+        path: Option<crate::paths::PathId>,
+    },
     Stroke {
         source: super::stroke_ui::StrokeSource,
         dialog: bool,
@@ -960,6 +965,24 @@ impl Workspace {
                         return None;
                     }
                     match pending.followup {
+                        NumericFollowup::TextOperation {
+                            along_path,
+                            layer,
+                            path,
+                        } => {
+                            if this.active_tab().is_some_and(|tab| {
+                                tab.active_layer == layer
+                                    && (!along_path
+                                        || tab.document.content.active_path_id() == path)
+                            }) {
+                                if along_path {
+                                    this.text_path_form(window, cx);
+                                } else {
+                                    this.alpha_to_selection(window, cx);
+                                }
+                            }
+                            None
+                        }
                         NumericFollowup::Key(key) => {
                             this.focus.focus(window);
                             Some(key)

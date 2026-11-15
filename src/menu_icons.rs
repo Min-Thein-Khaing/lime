@@ -60,7 +60,7 @@ pub(crate) fn for_action(action: &dyn Action) -> Option<&'static str> {
         ToggleLayerLink => "link", DetachShadow => "unlink", AttachLayerAbove => "link",
         ToggleLayerVisibility => "eye", ToggleAlphaLock => "lock-alpha", TogglePositionLock => "lock-position", FitLayerToCanvas => "scale", ScaleImage => "scale",
         ApplyCrop => "crop", CropToSelection => "crop", CropImageToContent => "crop",
-        CropLayerToContent => "crop", StrokePath => "stroke", StrokeSelection => "stroke",
+        CropLayerToContent => "crop", StrokePath => "stroke", StrokeSelection => "stroke", StrokeLayer => "stroke",
         SwapColors => "swap",
         RepeatLastEffect => "redo", ReopenLastEffect => "redo",
         ResetCurrentTool => "reset", ResetAllTools => "reset",

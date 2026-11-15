@@ -3,7 +3,7 @@ use std::sync::Arc;
 use gpui::{Context, Div, Window, prelude::*};
 
 use super::Workspace;
-use crate::commands::{DropShadow, GaussianBlur, Sharpen};
+use crate::commands::{DropShadow, GaussianBlur, Sharpen, StrokeLayer};
 use crate::document::LayerId;
 use crate::filters::FilterSpec;
 use crate::selection::Selection;
@@ -13,6 +13,7 @@ pub(super) enum FilterKind {
     Blur,
     Sharpen,
     Shadow,
+    Stroke,
 }
 
 impl FilterKind {
@@ -21,6 +22,7 @@ impl FilterKind {
             FilterSpec::Blur { .. } => Self::Blur,
             FilterSpec::Sharpen { .. } => Self::Sharpen,
             FilterSpec::Shadow { .. } => Self::Shadow,
+            FilterSpec::Stroke { .. } => Self::Stroke,
         }
     }
 }
@@ -56,6 +58,9 @@ impl Workspace {
         .on_action(cx.listener(|this, _: &DropShadow, window, cx| {
             this.filter_form(FilterKind::Shadow, window, cx);
         }))
+        .on_action(cx.listener(|this, _: &StrokeLayer, window, cx| {
+            this.filter_form(FilterKind::Stroke, window, cx);
+        }))
     }
 
     pub(super) fn begin_filter(
@@ -64,7 +69,7 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> bool {
-        if self.refuse_text_pixels(false, cx) {
+        if !spec.supports_text() && self.refuse_text_pixels(false, cx) {
             return false;
         }
         let Some(tab) = self.active_tab() else {
@@ -80,7 +85,7 @@ impl Workspace {
             self.notice("The active layer is hidden. Show it before filtering.", cx);
             return false;
         }
-        let edge = self.effect_preview_edge(FilterKind::of(spec) == FilterKind::Shadow, window);
+        let edge = self.effect_preview_edge(spec.supports_text(), window);
         let reediting = self.effect_reediting;
         let (content, selection) = if reediting {
             tab.document
@@ -142,21 +147,15 @@ impl Workspace {
         let layer = session.layer;
         let spec = session.spec;
         let target = (session.tab, session.generation);
-        if let FilterSpec::Shadow {
-            radius,
-            opacity,
-            offset,
-            ..
-        } = spec
-            && opacity != 0
+        if spec.supports_text()
+            && !spec.is_identity()
             && !self
                 .active_tab()
-                .is_some_and(|tab| tab.document.content.drop_shadow_fits(layer, radius, offset))
+                .is_some_and(|tab| tab.document.content.layer_filter_fits(layer, spec))
         {
             if let Some(form) = self.form.as_mut() {
                 form.error = Some(
-                    "The drop shadow does not fit in the layer stack or its offset is too large."
-                        .into(),
+                    "The effect does not fit in the layer stack or its offset is too large.".into(),
                 );
             }
             cx.notify();

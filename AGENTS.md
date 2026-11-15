@@ -90,8 +90,8 @@ as native menu accelerators.
 Command shortcuts use Cmd on macOS and Ctrl on Windows/Linux: L opens as layers,
 Shift+L toggles the right sidebar, G toggles the grid, R toggles rulers/guides,
 B toggles the layer boundary, Shift+C crops the image to content, F fits the layer
-to canvas, I makes the layer canvas-sized, and D opens Drop Shadow. Shift+I
-inverts the selection. Repeat/Reopen Last Effect use Alt+F/Alt+Shift+F with the
+to canvas, I makes the layer canvas-sized, and D opens Drop Shadow. Shift+O opens Stroke (outside outline). Shift+I inverts
+the selection. Repeat/Reopen Last Effect use Alt+F/Alt+Shift+F with the
 same platform primary modifier. Plain tool keys stay independent; Default Colors
 has no shortcut. The focused sidebar button consumes Enter/Space through NoAction
 bindings and dispatches from its key handler, so those local activation keys
@@ -118,7 +118,7 @@ selection commit, the latest ratio click waits for completion and validates the
 original tab/layer/tool/generation; switching context discards the queued choice. Sample or set swatches and fill
 connected regions on the active layer.
 One shared recent list holds 12 unique RGB colors across tabs and all color
-pickers. Accepting foreground/background, Text, Drop Shadow, and gradient-stop
+pickers. Accepting foreground/background, Text, Drop Shadow, Stroke, and gradient-stop
 colors or sampling with Eyedropper remembers the RGB; canceled picker drafts do
 not. Foreground/background swatches and recents persist in personal `settings.json`
 beside `gradients.json`, outside project data/history. Swap and Reset persist;
@@ -387,19 +387,37 @@ The layer's alpha stays in place. Cancel
 leaves the pixels unchanged, and identity settings do not create a history
 entry. Color Balance, Levels, and Curves use that dialog. Levels and Curves
 share a per-channel lookup table, and their histogram skips transparent pixels.
-Blur, Sharpen, and Drop Shadow use the same composition preview controls. Blur and
+Blur, Sharpen, Drop Shadow, and Stroke share composition preview controls. Blur and
 Sharpen follow the selection and mix color and alpha. Drop Shadow adds a layer
-beneath the source from its blurred silhouette. A zero radius or amount does
+beneath a raster or editable-text source from its cached silhouette, keeping text
+editable and the source active. Pending text edits finish before preview capture.
+The shadow follows source movement but later text/source edits do not regenerate
+its pixels. Repeat/Reopen Last Effect accepts text for Drop Shadow and Stroke; other
+adjustments and filters still require rasterization. A zero radius or amount does
 not create a history entry. Each adjustment/filter remembers successful parameters
 across restarts, shared across tabs; cancellation, failed/stale jobs,
 and pixel no-ops leave prior settings intact. Filters → Repeat Last Effect
-(Cmd/Ctrl+Alt+F) applies the last successful adjustment/filter to the current visible
-raster layer and current selection as one undoable edit. Reopen Last Effect
+(Cmd/Ctrl+Alt+F) applies the last successful adjustment/filter to the current eligible
+visible layer and current selection as one undoable edit. Reopen Last Effect
 (Cmd/Ctrl+Alt+Shift+F) opens its remembered parameters with preview. Typed geometry
 and text resolve first; unfinished canvas previews disable these commands.
-Shadow repeat preflights the current destination and keeps the source active.
-Its dialog uses a preview beside the controls on wide windows and a stacked
-layout on narrow windows. Shadows default to black; Choose Color opens the shared
+Shadow and Stroke repeat preflight the current destination and keep the source active.
+Filters → Stroke… (Cmd/Ctrl+Shift+O) creates an outside-only outline as a separate
+raster layer directly beneath a visible raster or editable-text source. Width is
+0–128 image pixels (default 3); opacity defaults to 100%, color to black, and zero
+width/opacity is a no-op. It uses circular grayscale alpha dilation with a 4×4
+subpixel kernel fringe, subtracting the original alpha so source interiors remain
+clear. Enabled masks affect the silhouette; source opacity and selection do not.
+Antialiasing preserves faint alpha and rounds corners, including hole boundaries.
+Its responsive preview, Before/After, Reset, color picker/Use Foreground, successful
+parameter memory, and Repeat/Reopen follow Drop Shadow. The source stays active
+and editable. The generated layer uses the existing directional attachment, follows
+source movement, and remains frozen after source edits; no new project metadata is
+needed. Size/stack/offset admission happens before allocation and failed/no-op
+renders create no layer/history. Effect preferences have eleven slots and accept
+older ten-slot settings, adding an independent atomic merge group for Stroke.
+Drop Shadow’s dialog uses a preview beside the controls on wide windows and a
+stacked layout on narrow windows. Shadows default to black; Choose Color opens the shared
 color picker and Use Foreground copies the foreground. Canceling the picker
 returns to the unchanged shadow draft. Reset restores built-in parameters and black. Memory is not project data
 and is not undone with the document. Path (`P`) edits cubic anchors in canvas
@@ -432,7 +450,9 @@ Visible Paths to Selection fills all visible closed paths with
 nonzero winding. Both its menu and panel action require a usable visible closed
 path; hidden-only/open-only paths cannot clear an existing selection. Selection to Path creates closed paths from the current
 selection. Selection ants paint above path outlines so an overlapping path
-cannot hide the selection; path handles remain above both. Image transforms,
+cannot hide the selection; path handles remain above both. Bézier control grips are seven-point white circles
+with a dark rim so they stay visible over both light and dark pixels; anchor grips
+remain squares. Image transforms,
 scale, canvas size, and crop move those paths with the image. A Paths tab beside Layers lists every path, selects one, toggles its
 visibility, or deletes it. Escape or switching tools stops the
 current path, and the next Path click starts a new one. Stroke in the Paths tab
@@ -487,7 +507,38 @@ display and export. Opening a draft preserves those
 pixels until its source or style changes. Preview jobs coalesce changes and
 preserve layer opacity and stack order. A missing named font shows a substitution
 notice. Rasterize Text Layer drops the source
-and keeps the pixels. Pixel tools stay disabled until then. The Image menu
+and keeps the pixels. Pixel tools stay disabled until then; Drop Shadow and Stroke
+can read the cached silhouette without rasterizing text.
+Select → Alpha to Selection replaces the selection with the active layer's cached
+alpha at its canvas offset, including enabled mask coverage and soft edges. It
+works on text and raster layers, independently of layer visibility/opacity, and
+commits selection-only history without requiring project Save. It finishes typed
+geometry/text before capturing the layer; pixel buffers stay shared.
+Layer → Text Along Path… takes the visible editable text layer and selected visible
+path. Its responsive modal previews one shaped line along arc distance, with
+Start/Center/End alignment, signed decimal path/baseline offsets, and Reverse
+Direction. Offset −/+ buttons and focused-field Up/Down step by one pixel, or ten
+with Shift, preserving fractional values and clamping to the permitted range.
+Incomplete offset input steps from its last valid value. Typing previews debounce
+for 80 ms, retain the last image and overflow feedback until replacement, and use
+fixed status/error space so pending work and validation cannot recenter the modal.
+The updating label appears only when the current preview render takes at least
+500 ms; normal offset steps refresh quietly. Stale progress timers cannot change
+a newer draft or reopened dialog. Glyphs in a shaping cluster rotate together; letterforms are not bent.
+Fixed boxes are ignored and explicit line breaks are rejected. Closed guides use
+one traversal without wrapping; overflow omits whole clusters and shows a notice.
+Bitmap-only glyphs without scalable outlines are rejected. Preview work coalesces
+in background jobs, renders at a bounded canvas resolution, validates the original
+tab/layer/path/generation and draft revision, and drops canceled/stale results.
+Apply preflights dimensions, offsets, layer count/IDs, and aggregate pixel storage
+before full-resolution allocation. It inserts a new unlocked/unlinked raster above
+the source, copies source opacity/blend mode, hides the original, selects the
+result, and preserves the guide and selection in one undoable image edit. The
+source text stays editable and both layers save using the existing project format;
+there is no persistent text/guide relationship. Cancel changes no document data.
+`src/text/path.rs` owns shaping/curve placement/rasterization;
+`src/workspace/dialogs/text_path.rs` owns the commands and modal session.
+The Image menu
 can scale the canvas, resize it from a nine-point anchor,
 or switch between RGB and grayscale. Copy and Cut use the active layer inside the
 selection, Paste adds a centered layer, and Open as Layers imports images
@@ -1183,6 +1234,11 @@ for test images. Keep machine-specific settings and credentials out of source.
 `cargo clean` removes the rebuildable Rust output without deleting the current
 `dist/Lime.app` or DMG. Keep the golden project fixture and editable/packaged
 app icons; they are source assets, not generated leftovers.
+Keep the current development bundle at `dist/Lime.app`. When tidying generated
+artifacts, archive signed releases with their checksums and notarization records
+under `dist/releases/<version>/`; old release records must not imply that a newly
+rebuilt development app is notarized. Duplicate verification downloads, superseded
+app backups, and project build caches can be removed when cleanup is requested.
 
 
 ## Capability pass 26 contracts
@@ -1219,7 +1275,8 @@ app icons; they are source assets, not generated leftovers.
   retained metadata counts per history entry. Pixel/geometry writes bake the
   retained effect, including warps that change only a mask;
   position/opacity/direct mask edits retain it. New effects bake the
-  previous result. Drop Shadow remains a separate raster-layer operation.
+  previous result. Drop Shadow creates a separate raster layer from either a
+  raster or editable-text source without changing that source.
 - `TextLayout` stores optional fixed Width/Height and Left/Center/Right alignment.
   Fixed boxes wrap by word or glyph, clip raster/caret/highlight coverage, retain
   overflowing source, and expose an overflow notice. Draft history, defaults,

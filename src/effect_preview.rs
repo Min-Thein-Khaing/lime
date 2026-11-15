@@ -38,8 +38,8 @@ struct Region {
     scale: f64,
 }
 
-struct ShadowPreview {
-    image: filters::ShadowImage,
+struct LayerFilterPreview {
+    image: filters::LayerFilterImage,
     origin: (i64, i64),
     scale: f64,
 }
@@ -111,7 +111,7 @@ impl EffectPreview {
             color,
         } = spec
         {
-            let Some(region) = self.region(radius, offset, true) else {
+            let Some(region) = self.region(filters::kernel_support(radius), offset, true) else {
                 return self.original().clone();
             };
             let shadow = filters::render_shadow(
@@ -120,18 +120,40 @@ impl EffectPreview {
                 opacity,
                 self.content.mode().constrain(color),
             )
-            .map(|image| ShadowPreview {
+            .map(|image| LayerFilterPreview {
                 image,
                 origin: region.origin,
                 scale: region.scale,
             });
             return self.composite(|pixel, _, _| pixel, shadow.as_ref());
         }
+        if let FilterSpec::Stroke {
+            width,
+            opacity,
+            color,
+        } = spec
+        {
+            let Some(region) = self.region(width, (0, 0), true) else {
+                return self.original().clone();
+            };
+            let stroke = filters::render_stroke_scaled(
+                &region.pixels,
+                f64::from(width) * region.scale,
+                opacity,
+                self.content.mode().constrain(color),
+            )
+            .map(|image| LayerFilterPreview {
+                image,
+                origin: region.origin,
+                scale: region.scale,
+            });
+            return self.composite(|pixel, _, _| pixel, stroke.as_ref());
+        }
         let radius = match spec {
             FilterSpec::Blur { radius } | FilterSpec::Sharpen { radius, .. } => radius,
             _ => 0,
         };
-        let Some(region) = self.region(radius, (0, 0), false) else {
+        let Some(region) = self.region(filters::kernel_support(radius), (0, 0), false) else {
             return self.original().clone();
         };
         let radius = (f64::from(radius) * region.scale).round() as u32;
@@ -179,12 +201,12 @@ impl EffectPreview {
     // Retain the visible source plus the filter's complete sampling halo. This
     // avoids squeezing a huge layer into a tiny preview of a small canvas, and
     // includes off-canvas pixels that can blur or cast a shadow onto the canvas.
-    fn region(&self, radius: u32, offset: (i32, i32), masked: bool) -> Option<Region> {
+    fn region(&self, halo: u32, offset: (i32, i32), masked: bool) -> Option<Region> {
         let layer = self.content.layer(self.layer)?;
         let canvas = self.content.size();
         let scale = f64::from(self.sampling_size.0.max(self.sampling_size.1))
             / f64::from(canvas.0.max(canvas.1));
-        let pad = i64::from(filters::kernel_support(radius));
+        let pad = i64::from(halo);
         let origin = (
             i64::from(layer.offset.0) + i64::from(offset.0),
             i64::from(layer.offset.1) + i64::from(offset.1),
@@ -228,13 +250,45 @@ impl EffectPreview {
     fn composite(
         &self,
         map: impl Fn(Rgba<u8>, i64, i64) -> Rgba<u8>,
-        shadow: Option<&ShadowPreview>,
+        shadow: Option<&LayerFilterPreview>,
+    ) -> RgbaImage {
+        self.composite_with_replacement(map, shadow, None)
+    }
+
+    // A bounded, canvas-sized raster replaces the text source at its stack slot.
+    // At native size this is the same composition as inserting above a hidden
+    // source. Reduced previews sample the rendered curves at preview resolution.
+    pub fn replacement(&self, image: &RgbaImage) -> RgbaImage {
+        self.composite_with_replacement(|pixel, _, _| pixel, None, Some(image))
+    }
+
+    fn composite_with_replacement(
+        &self,
+        map: impl Fn(Rgba<u8>, i64, i64) -> Rgba<u8>,
+        shadow: Option<&LayerFilterPreview>,
+        replacement: Option<&RgbaImage>,
     ) -> RgbaImage {
         let canvas = self.content.size();
         reduce_area(canvas, self.size, |cy, row| {
             row.fill(Rgba([0; 4]));
             for layer in self.content.layers() {
-                // Shadows are independent of source visibility/opacity and selection.
+                if layer.id == self.layer
+                    && let Some(image) = replacement
+                {
+                    let y =
+                        (u64::from(cy) * u64::from(image.height()) / u64::from(canvas.1)) as u32;
+                    for (x, pixel) in row.iter_mut().enumerate() {
+                        let x = (x as u64 * u64::from(image.width()) / u64::from(canvas.0)) as u32;
+                        *pixel = document::blend(
+                            *pixel,
+                            self.content.mode().constrain(*image.get_pixel(x, y)),
+                            layer.opacity,
+                            layer.blend_mode,
+                        );
+                    }
+                    continue;
+                }
+                // Generated silhouette layers are independent of source opacity and selection.
                 if layer.id == self.layer
                     && let Some(shadow) = shadow
                 {
@@ -780,7 +834,9 @@ mod tests {
         assert_ne!(adjusted, *preview.original());
         let max_pad = filters::kernel_support(filters::MAX_RADIUS);
         for offset in [(0, 0), (i32::MIN, i32::MAX), (i32::MAX, i32::MIN)] {
-            if let Some(region) = preview.region(filters::MAX_RADIUS, offset, false) {
+            if let Some(region) =
+                preview.region(filters::kernel_support(filters::MAX_RADIUS), offset, false)
+            {
                 assert!(region.pixels.width() <= 512 + 2 * max_pad + 1);
                 assert!(region.pixels.height() <= 512 + 2 * max_pad + 1);
             }
@@ -793,7 +849,9 @@ mod tests {
         large_layer.offset = (-200, -200);
         let content = DocumentContent::from_layers(128, 128, vec![large_layer]).unwrap();
         let preview = EffectPreview::new(content, LayerId(1), Selection::Full, 32);
-        let region = preview.region(filters::MAX_RADIUS, (0, 0), false).unwrap();
+        let region = preview
+            .region(filters::kernel_support(filters::MAX_RADIUS), (0, 0), false)
+            .unwrap();
         // Filter inputs use twice the display resolution.
         assert_eq!(region.pixels.dimensions(), (160, 160));
         assert_eq!(

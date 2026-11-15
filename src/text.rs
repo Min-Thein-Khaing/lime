@@ -4,6 +4,8 @@ use image::{Rgba, RgbaImage};
 
 use crate::document::{MAX_IMAGE_BYTES, MAX_NEW_EDGE};
 
+pub mod path;
+
 pub const MAX_TEXT_CHARS: usize = 4_000;
 pub const MAX_FAMILY_CHARS: usize = 128;
 pub const MIN_PIXEL_SIZE: f32 = 1.0;

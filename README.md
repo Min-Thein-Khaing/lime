@@ -36,7 +36,11 @@ Windows downloads are unsigned. The macOS app is Developer ID signed and notariz
 - **Painting** — pencil, brush, eraser, clone stamp, gradients, and bucket fill.
   Per-tool settings and recent colors survive app restarts.
 - **Text and paths** — editable text, font controls, wrapping, and editable vector paths.
+  Select letter shapes with Alpha to Selection, or preview and adjust text along
+  a path while keeping the original text.
 - **Color and effects** — levels, curves, blur, sharpen, drop shadows, and editable layer effects.
+  Drop shadows and outside strokes work on editable text; later text edits leave
+  those effect layers unchanged.
 - **PDF and recovery** — import selected PDF pages, export a flattened PDF, and recover interrupted work.
 
 ## Getting started

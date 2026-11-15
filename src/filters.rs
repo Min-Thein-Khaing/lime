@@ -1,5 +1,9 @@
 use image::{Rgba, RgbaImage};
 
+mod stroke;
+pub(crate) use stroke::render_stroke_scaled;
+pub use stroke::{MAX_STROKE_WIDTH, render_stroke, stroke_dimensions};
+
 pub const MAX_RADIUS: u32 = 32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,14 +28,26 @@ pub enum FilterSpec {
         #[serde(with = "crate::settings::rgba")]
         color: Rgba<u8>,
     },
+    Stroke {
+        width: u32,
+        opacity: u8,
+        #[serde(with = "crate::settings::rgba")]
+        color: Rgba<u8>,
+    },
 }
 
 impl FilterSpec {
+    // Separate silhouette layers read the cache without changing editable text.
+    pub fn supports_text(self) -> bool {
+        matches!(self, Self::Shadow { .. } | Self::Stroke { .. })
+    }
+
     pub fn is_identity(self) -> bool {
         match self {
             Self::Blur { radius } => radius == 0,
             Self::Sharpen { radius, amount } => radius == 0 || amount == 0,
             Self::Shadow { opacity, .. } => opacity == 0,
+            Self::Stroke { width, opacity, .. } => width == 0 || opacity == 0,
         }
     }
 }
@@ -44,7 +60,7 @@ pub struct Filtered {
     pub bottom: u32,
 }
 
-pub struct ShadowImage {
+pub struct LayerFilterImage {
     pub pixels: RgbaImage,
     pub pad: i32,
 }
@@ -159,7 +175,7 @@ pub fn render_shadow(
     radius: u32,
     opacity: u8,
     color: Rgba<u8>,
-) -> Option<ShadowImage> {
+) -> Option<LayerFilterImage> {
     let opacity = opacity.min(100);
     if opacity == 0 {
         return None;
@@ -184,7 +200,7 @@ pub fn render_shadow(
     if !visible {
         return None;
     }
-    Some(ShadowImage {
+    Some(LayerFilterImage {
         pixels: gaussian_blur(&image, radius),
         pad: pad as i32,
     })
@@ -281,21 +297,34 @@ pub fn preview(
             opacity,
             color,
         } => {
-            let image = composite_shadow(
+            let image = composite_silhouette(
                 &reduced,
-                scaled(radius),
+                render_shadow(&reduced, scaled(radius), opacity, constrain(color)),
                 (
                     (f64::from(offset.0) * scale).round() as i32,
                     (f64::from(offset.1) * scale).round() as i32,
                 ),
-                opacity,
-                constrain(color),
                 max_edge,
             );
             RgbaImage::from_fn(image.width(), image.height(), |x, y| {
                 constrain(*image.get_pixel(x, y))
             })
         }
+        FilterSpec::Stroke {
+            width,
+            opacity,
+            color,
+        } => composite_silhouette(
+            &reduced,
+            render_stroke_scaled(
+                &reduced,
+                f64::from(width) * scale,
+                opacity,
+                constrain(color),
+            ),
+            (0, 0),
+            max_edge,
+        ),
     }
 }
 
@@ -323,15 +352,13 @@ fn mix_covered(
     .unwrap_or_else(|| source.clone())
 }
 
-fn composite_shadow(
+fn composite_silhouette(
     source: &RgbaImage,
-    radius: u32,
+    image: Option<LayerFilterImage>,
     offset: (i32, i32),
-    opacity: u8,
-    color: Rgba<u8>,
     max_edge: u32,
 ) -> RgbaImage {
-    let Some(shadow) = render_shadow(source, radius, opacity, color) else {
+    let Some(shadow) = image else {
         return source.clone();
     };
     let origin = (

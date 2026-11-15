@@ -299,6 +299,7 @@ impl settings::Preferences for Preferences {
             &["effects/values/7"],
             &["effects/values/8"],
             &["effects/values/9"],
+            &["effects/values/10"],
         ]
     }
 
@@ -771,7 +772,7 @@ pub(super) mod tests {
         for expanded in value["tool_sections"].as_object_mut().unwrap().values_mut() {
             *expanded = json!(!expanded.as_bool().unwrap());
         }
-        let mut effects = vec![Value::Null; 10];
+        let mut effects = vec![Value::Null; 11];
         let last = effects::Effect::Filter(crate::filters::FilterSpec::Shadow {
             radius: 8,
             offset: (-12, 23),
@@ -779,11 +780,46 @@ pub(super) mod tests {
             color: image::Rgba([9, 17, 25, 131]),
         });
         effects[9] = serde_json::to_value(last).unwrap();
+        effects[10] = serde_json::to_value(effects::Effect::Filter(
+            crate::filters::FilterSpec::Stroke {
+                width: 11,
+                opacity: 79,
+                color: image::Rgba([60, 20, 90, 255]),
+            },
+        ))
+        .unwrap();
         effects[0] = json!({"Adjustment":{"BrightnessContrast":{"brightness":15,"contrast":-12}}});
         value["effects"] = json!({"values":effects,"last":last});
         let preferences: Preferences = serde_json::from_value(value).unwrap();
         preferences.validate().unwrap();
         preferences
+    }
+
+    #[test]
+    fn old_effect_slots_load_and_stroke_merges_without_replacing_other_effects() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let mut old = serde_json::to_value(configured()).unwrap();
+        old["effects"]["values"].as_array_mut().unwrap().pop();
+        std::fs::write(
+            &path,
+            serde_json::to_vec(&json!({"version":1,"preferences":old})).unwrap(),
+        )
+        .unwrap();
+        let baseline = settings::load::<Preferences>(&path).unwrap();
+        let mut next = serde_json::to_value(&baseline.preferences).unwrap();
+        let stroke = json!({"Filter":{"Stroke":{"width":12,"opacity":63,"color":[10,20,30,255]}}});
+        next["effects"]["values"][10] = stroke.clone();
+        next["effects"]["last"] = stroke.clone();
+        let next: Preferences = serde_json::from_value(next).unwrap();
+        let mut patch = Patch::default();
+        patch.record(&baseline.preferences, &next).unwrap();
+        settings::save::<Preferences>(&path, &patch).unwrap();
+        let saved = serde_json::to_value(settings::load::<Preferences>(&path).unwrap().preferences)
+            .unwrap();
+        assert_eq!(saved["effects"]["values"][9], old["effects"]["values"][9]);
+        assert_eq!(saved["effects"]["values"][10], stroke);
+        assert_eq!(saved["effects"]["last"], stroke);
     }
 
     #[test]

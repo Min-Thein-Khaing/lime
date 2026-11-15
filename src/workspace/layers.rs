@@ -919,7 +919,7 @@ impl Workspace {
                         .when_some(content.shadow_source(id).and_then(|source| content.layer(source)), |label, source| {
                             label.child(div().id(("shadow-attachment", id.0 as usize)).text_size(px(10.)).text_color(rgb(MUTED))
                                 .child(format!("↳ {}", source.name))
-                                .tooltip(tooltip("Attached shadow — follows its source; drag the shadow to adjust its offset")))
+                                .tooltip(tooltip("Attached layer — follows its source; drag this layer to adjust its offset")))
                         }),
                 )
                 .child(

@@ -157,6 +157,7 @@ impl Render for Workspace {
                 let root = self.bind_path_actions(root, cx);
                 let root = self.bind_stroke_actions(root, cx);
                 let root = self.bind_text_actions(root, cx);
+                let root = self.bind_text_path_actions(root, cx);
                 root.on_action(cx.listener(|this, action: &SelectTool, window, cx| {
                     this.close_font_picker(window, cx);
                     let tool = action.0;
@@ -2541,31 +2542,35 @@ impl Workspace {
             })
     }
 
+    pub(super) fn pointer_gesture_active(&self, cx: &App) -> bool {
+        cx.has_active_drag()
+            || self.stroke.is_some()
+            || self.move_pointer_dragging()
+            || self.scale_pointer_dragging()
+            || self.warp.as_ref().is_some_and(|session| session.dragging())
+            || self
+                .gradient
+                .as_ref()
+                .is_some_and(|session| session.dragging())
+            || self.crop_drag.is_some()
+            || self.selection_drag.is_some()
+            || self.free_drag_origin.is_some()
+            || self.path_gesture.is_some()
+            || self.guide_drag.is_some()
+            || self.pan_drag.is_some()
+            || self.opacity_drag.is_some()
+            || self.toolbox_drag.is_some()
+            || self
+                .text_draft
+                .as_ref()
+                .is_some_and(|draft| draft.pointer_dragging())
+    }
+
     fn can_toggle_inspector(&self, cx: &App) -> bool {
         self.form.is_none()
             && !self.dialog_open
             && self.pdf_job.is_none()
-            && !cx.has_active_drag()
-            && self.stroke.is_none()
-            && !self.move_pointer_dragging()
-            && !self.scale_pointer_dragging()
-            && !self.warp.as_ref().is_some_and(|session| session.dragging())
-            && !self
-                .gradient
-                .as_ref()
-                .is_some_and(|session| session.dragging())
-            && self.crop_drag.is_none()
-            && self.selection_drag.is_none()
-            && self.free_drag_origin.is_none()
-            && self.path_gesture.is_none()
-            && self.guide_drag.is_none()
-            && self.pan_drag.is_none()
-            && self.opacity_drag.is_none()
-            && self.toolbox_drag.is_none()
-            && !self
-                .text_draft
-                .as_ref()
-                .is_some_and(|draft| draft.pointer_dragging())
+            && !self.pointer_gesture_active(cx)
     }
 
     fn toggle_inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -4081,9 +4086,13 @@ fn paint_handle_line(window: &mut Window, from: Point<Pixels>, to: Point<Pixels>
             window.paint_path(line, color);
         }
     }
-    window.paint_quad(fill(
-        Bounds::centered_at(to, size(px(5.), px(5.))),
+    window.paint_quad(gpui::quad(
+        Bounds::centered_at(to, size(px(7.), px(7.))),
+        px(3.5),
         rgb(0xffffff),
+        px(1.25),
+        rgb(0x12151c),
+        gpui::BorderStyle::Solid,
     ));
 }
 

@@ -15,12 +15,19 @@ pub(super) enum Effect {
 }
 
 impl Effect {
+    fn supports_text(self) -> bool {
+        matches!(self, Self::Filter(spec) if spec.supports_text())
+    }
+
     fn valid(self) -> bool {
         match self {
             Self::Adjustment(value) => value.valid(),
             Self::Filter(FilterSpec::Blur { radius }) => radius <= crate::filters::MAX_RADIUS,
             Self::Filter(FilterSpec::Sharpen { radius, amount }) => {
                 radius <= crate::filters::MAX_RADIUS && amount <= 100
+            }
+            Self::Filter(FilterSpec::Stroke { width, opacity, .. }) => {
+                width <= crate::filters::MAX_STROKE_WIDTH && opacity <= 100
             }
             Self::Filter(FilterSpec::Shadow {
                 radius,
@@ -52,12 +59,9 @@ impl Effect {
 
     fn fits(self, content: &DocumentContent, layer: LayerId) -> bool {
         match self {
-            Self::Filter(FilterSpec::Shadow {
-                radius,
-                offset,
-                opacity,
-                ..
-            }) if opacity != 0 => content.drop_shadow_fits(layer, radius, offset),
+            Self::Filter(spec) if spec.supports_text() && !spec.is_identity() => {
+                content.layer_filter_fits(layer, spec)
+            }
             _ => true,
         }
     }
@@ -70,7 +74,7 @@ impl Effect {
             Self::Filter(FilterSpec::Sharpen { radius, amount }) => {
                 Some(EffectSpec::Sharpen { radius, amount })
             }
-            Self::Filter(FilterSpec::Shadow { .. }) => None,
+            Self::Filter(FilterSpec::Shadow { .. } | FilterSpec::Stroke { .. }) => None,
         }
     }
 
@@ -79,6 +83,9 @@ impl Effect {
             Self::Adjustment(value) => content.apply_adjustment(layer, value, selection),
             Self::Filter(spec @ FilterSpec::Shadow { .. }) => content
                 .place_drop_shadow(layer, spec)
+                .map_or(Dirty::None, Dirty::Region),
+            Self::Filter(spec @ FilterSpec::Stroke { .. }) => content
+                .place_layer_filter(layer, spec)
                 .map_or(Dirty::None, Dirty::Region),
             Self::Filter(value) => content.apply_filter(layer, value, selection),
         }
@@ -96,8 +103,26 @@ struct PendingEffect {
 #[derive(Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub(super) struct Preferences {
-    values: [Option<Effect>; 10],
+    #[serde(deserialize_with = "deserialize_effect_slots")]
+    values: [Option<Effect>; 11],
     last: Option<Effect>,
+}
+
+// Version-one settings used ten slots; preserve them when adding Stroke.
+fn deserialize_effect_slots<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<[Option<Effect>; 11], D::Error> {
+    let values = <Vec<Option<Effect>> as serde::Deserialize>::deserialize(deserializer)?;
+    if !matches!(values.len(), 10 | 11) {
+        return Err(serde::de::Error::custom(
+            "Expected ten or eleven effect slots",
+        ));
+    }
+    let mut slots = [None; 11];
+    for (slot, value) in slots.iter_mut().zip(values) {
+        *slot = value;
+    }
+    Ok(slots)
 }
 
 impl Preferences {
@@ -121,7 +146,7 @@ impl Preferences {
 #[derive(Default)]
 pub(super) struct EffectMemory {
     // Keep only small parameter values, never document pixels or selections.
-    values: [Option<(u64, Effect)>; 10],
+    values: [Option<(u64, Effect)>; 11],
     last: Option<(u64, Effect)>,
     order: u64,
     pending: Vec<PendingEffect>,
@@ -207,8 +232,10 @@ impl Workspace {
     }
 
     fn last_effect_enabled(&self) -> bool {
-        self.effect_memory.last.is_some()
-            && self.form.is_none()
+        let Some((_, effect)) = self.effect_memory.last else {
+            return false;
+        };
+        self.form.is_none()
             && !self.dialog_open
             && self.pdf_job.is_none()
             && self.stroke.is_none()
@@ -231,7 +258,9 @@ impl Workspace {
                         .document
                         .content
                         .layer(tab.active_layer)
-                        .is_some_and(|layer| layer.visible && layer.text.is_none())
+                        .is_some_and(|layer| {
+                            layer.visible && (layer.text.is_none() || effect.supports_text())
+                        })
             })
     }
 
@@ -275,7 +304,10 @@ impl Workspace {
             return;
         };
         if !effect.fits(&tab.document.content, tab.active_layer) {
-            self.notice("The repeated drop shadow does not fit in the layer stack or its offset is too large.", cx);
+            self.notice(
+                "The repeated effect does not fit in the layer stack or its offset is too large.",
+                cx,
+            );
             return;
         }
         let target = (tab.id, tab.history.generation());
@@ -437,6 +469,11 @@ mod tests {
                 opacity: 65,
                 color: Rgba([40, 60, 80, 90]),
             },
+            FilterSpec::Stroke {
+                width: 7,
+                opacity: 89,
+                color: Rgba([30, 60, 90, 255]),
+            },
         ];
         let mut memory = EffectMemory::default();
         for adjustment in adjustments {
@@ -465,7 +502,7 @@ mod tests {
         }
         assert_eq!(
             memory.last.map(|(_, effect)| effect),
-            Some(Effect::Filter(filters[2]))
+            Some(Effect::Filter(filters[3]))
         );
         assert!(memory.pending.is_empty());
     }
@@ -547,6 +584,45 @@ mod tests {
             Effect::Adjustment(Adjustment::Invert).apply(&mut content, target, &Selection::Empty),
             Dirty::None
         );
+    }
+
+    #[test]
+    fn text_accepts_shadow_effects_but_still_rejects_pixel_filters() {
+        let mut content = DocumentContent::single_layer("Text".into(), RgbaImage::new(64, 48));
+        let id = content.top_layer_id();
+        content.set_text(
+            id,
+            (4, 4),
+            crate::text::render("Hi", "sans-serif", 24.0, Rgba([0, 0, 0, 255])).unwrap(),
+        );
+        for effect in [
+            Effect::Adjustment(Adjustment::Invert),
+            Effect::Filter(FilterSpec::Blur { radius: 2 }),
+            Effect::Filter(FilterSpec::Sharpen {
+                radius: 2,
+                amount: 50,
+            }),
+        ] {
+            assert!(!effect.supports_text());
+            assert_eq!(
+                effect.apply(&mut content, id, &Selection::Unrestricted),
+                Dirty::None
+            );
+        }
+        let effect = Effect::Filter(FilterSpec::Shadow {
+            radius: 2,
+            offset: (3, 4),
+            opacity: 80,
+            color: Rgba([0, 0, 0, 255]),
+        });
+        assert!(effect.supports_text());
+        assert!(effect.fits(&content, id));
+        assert_ne!(
+            effect.apply(&mut content, id, &Selection::Empty),
+            Dirty::None
+        );
+        assert_eq!(content.layers().len(), 2);
+        assert!(content.layer_is_text(id));
     }
 
     #[test]

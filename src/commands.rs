@@ -86,10 +86,13 @@ actions!(
         GaussianBlur,
         Sharpen,
         DropShadow,
+        StrokeLayer,
         RepeatLastEffect,
         ReopenLastEffect,
         PathToSelection,
         SelectionToPath,
+        AlphaToSelection,
+        TextAlongPath,
         ClosePath,
         CancelPath,
         DeletePathAnchor,
@@ -342,7 +345,7 @@ impl Tool {
                 "Drag a line to preview the gradient, then adjust its endpoints. FG → BG follows the foreground/background swatches; FG → Clear fades to transparency. Custom edits up to eight color stops: select a stop, choose its color/opacity, and type its position between its neighbors. Add Stop splits the largest gap; endpoints stay at 0% and 100%. Reverse changes direction without moving the line. Save… names the current colors, shape, and direction in a personal library of up to 32 gradients that survives restarts. Expand Saved gradients to load one without moving the line or changing swatches. Rename/Delete manage the selected saved entry; deletion keeps the current gradient. Library changes take effect after saving succeeds. An error offers Reload Library and preserves the existing file. The selection limits the fill. Return applies it; Escape cancels."
             }
             Self::Text => {
-                "Click empty canvas to add text, or click a text layer to edit it. Drag, Shift-click, or Shift+arrows select a range; Copy/Cut use it and typing/Paste replace it. Option+Left/Right and Option+Backspace/Delete on macOS (Ctrl on Windows) work by word; Shift extends the selection. Return adds a line. Font/style controls affect the whole layer. In the font picker, type to filter; arrows browse, Return chooses, and Escape closes it. Outside the picker, Escape, Cmd/Ctrl-Enter, clicking outside, or changing tools/layers/tabs commits. Undo steps through typing first. Rasterize Text enables pixel tools."
+                "Click empty canvas to add text, or click a text layer to edit it. Drag, Shift-click, or Shift+arrows select a range; Copy/Cut use it and typing/Paste replace it. Option+Left/Right and Option+Backspace/Delete on macOS (Ctrl on Windows) work by word; Shift extends the selection. Return adds a line. Font/style controls affect the whole layer. In the font picker, type to filter; arrows browse, Return chooses, and Escape closes it. Outside the picker, Escape, Cmd/Ctrl-Enter, clicking outside, or changing tools/layers/tabs commits. Undo steps through typing first. Select → Alpha to Selection selects the letter shapes. With a guide selected in Paths, Layer → Text Along Path… previews one line and creates a raster result while hiding the original text. Undo to edit and retry. Rasterize Text enables pixel tools."
             }
             Self::Path => {
                 "Click to add anchors; drag to pull their handles. Alt-click a curve to insert an anchor without changing its shape; drag it to reposition the new point. Anchor and handle hits take priority. Shift-click anchors to add/remove them from a selection on one path; then drag any selected anchor to move the group and its handles. All Anchors and Deselect are in Tool Options. Clicking an unselected anchor selects only it. Click the first anchor, selected alone, to close the path. Corner (collapse handles), Smooth (align/create handles), and Delete/Backspace apply to the selected group in one undo step; with no selection, Delete removes the last anchor. Handle Drag uses Independent, Aligned (keep the opposite length), or Symmetric (mirror both direction and length); it changes future handle drags. Escape or changing tools ends the current path; the next click starts a new one. Use the Paths tab to select, show, hide, delete, convert, or stroke paths. The panel Stroke uses the foreground color and shared stroke settings. Edit → Stroke Path… or Stroke Selection… opens those settings. A path stroke needs a visible path and a paintable raster layer."
@@ -540,6 +543,7 @@ fn workspace_bindings(primary: &str) -> Vec<KeyBinding> {
         KeyBinding::new(&format!("{primary}-f"), FitLayerToCanvas, None),
         KeyBinding::new(&format!("{primary}-i"), LayerToImageSize, None),
         KeyBinding::new(&format!("{primary}-d"), DropShadow, None),
+        KeyBinding::new(&format!("{primary}-shift-o"), StrokeLayer, None),
         KeyBinding::new(&format!("{primary}-s"), SaveImage, None),
         KeyBinding::new(&format!("{primary}-shift-s"), SaveImageAs, None),
         KeyBinding::new(&format!("{primary}-="), ZoomIn, None),
@@ -802,6 +806,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                 MenuItem::separator(),
                 MenuItem::action("Visible Paths to Selection", PathToSelection),
                 MenuItem::action("Selection to Path", SelectionToPath),
+                MenuItem::action("Alpha to Selection", AlphaToSelection),
             ],
         ),
         menu(
@@ -889,6 +894,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                 MenuItem::action("Layer to Canvas Size", LayerToImageSize),
                 MenuItem::action("Crop to Content", CropLayerToContent),
                 MenuItem::action("Rasterize Text Layer", RasterizeText),
+                MenuItem::action("Text Along Path…", TextAlongPath),
             ],
         ),
         menu(
@@ -932,6 +938,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                 MenuItem::action("Blur…", GaussianBlur),
                 MenuItem::action("Sharpen…", Sharpen),
                 MenuItem::action("Drop Shadow…", DropShadow),
+                MenuItem::action("Stroke…", StrokeLayer),
             ],
         ),
         menu(
@@ -1051,6 +1058,7 @@ mod tests {
             ("f", Box::new(FitLayerToCanvas)),
             ("i", Box::new(LayerToImageSize)),
             ("d", Box::new(DropShadow)),
+            ("shift-o", Box::new(StrokeLayer)),
             ("shift-i", Box::new(InvertSelection)),
             ("alt-f", Box::new(RepeatLastEffect)),
             ("alt-shift-f", Box::new(ReopenLastEffect)),
@@ -1397,6 +1405,7 @@ mod tests {
             "Shrink…",
             "Visible Paths to Selection",
             "Selection to Path",
+            "Alpha to Selection",
             "menu:View",
             "menu:Zoom",
             "Zoom In",
@@ -1477,6 +1486,7 @@ mod tests {
             "Layer to Canvas Size",
             "Crop to Content",
             "Rasterize Text Layer",
+            "Text Along Path…",
             "menu:Tools",
             "menu:Transform",
             "Move",
@@ -1527,6 +1537,7 @@ mod tests {
             "Blur…",
             "Sharpen…",
             "Drop Shadow…",
+            "Stroke…",
             "menu:Window",
             "Minimize",
             "Zoom",

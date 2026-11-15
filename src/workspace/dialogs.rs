@@ -1,6 +1,7 @@
 mod export;
 mod pdf_input;
 mod stroke;
+mod text_path;
 
 use std::{cell::Cell, path::PathBuf, rc::Rc, sync::Arc};
 
@@ -37,14 +38,14 @@ pub(super) struct Form {
     pub(super) kind: FormKind,
     pdf_input_drag: Option<pdf_input::PdfInputDrag>,
     pub(super) error: Option<String>,
-    // The shadow color picker returns to its draft without ending the filter session.
+    // The filter color picker returns to its draft without ending the filter session.
     parent: Option<Box<Form>>,
 }
 
 #[derive(Clone, Copy)]
 pub(super) enum ColorTarget {
     Swatch(usize),
-    Shadow,
+    Filter(FilterKind),
     GradientStop { revision: u64, index: usize },
 }
 
@@ -63,6 +64,7 @@ pub(super) enum FormKind {
     },
     Export(ExportDraft),
     Stroke(stroke::StrokeDraft),
+    TextPath(text_path::TextPathDraft),
     NewLayer {
         name: Field,
         fill: LayerFill,
@@ -232,6 +234,15 @@ impl FormKind {
                     *radius = r as i16;
                     *amount = i16::from(a);
                 }
+                FilterSpec::Stroke {
+                    width,
+                    opacity: o,
+                    color: c,
+                } => {
+                    *radius = width as i16;
+                    *opacity = i16::from(o);
+                    *color = c;
+                }
                 FilterSpec::Shadow {
                     radius: r,
                     offset,
@@ -269,11 +280,15 @@ impl FormKind {
     fn filter_defaults(kind: FilterKind) -> Self {
         Self::Filter {
             kind,
-            radius: if kind == FilterKind::Sharpen { 2 } else { 4 },
+            radius: match kind {
+                FilterKind::Sharpen => 2,
+                FilterKind::Stroke => 3,
+                _ => 4,
+            },
             amount: 50,
             offset_x: 8,
             offset_y: 8,
-            opacity: 75,
+            opacity: if kind == FilterKind::Stroke { 100 } else { 75 },
             color: image::Rgba([0, 0, 0, 255]),
         }
     }
@@ -306,6 +321,7 @@ pub(super) enum LayerFill {
 #[derive(Clone, Copy)]
 pub(super) enum FieldMode {
     Digits { max: usize },
+    SignedDecimal,
     Hex,
     Name,
     FontQuery,
@@ -484,6 +500,7 @@ impl Field {
         let existing = self.len() - self.selection_range().map_or(0, |range| range.len());
         let allowed = match mode {
             FieldMode::Digits { max } => max,
+            FieldMode::SignedDecimal => 12,
             FieldMode::Hex => 6,
             FieldMode::Name => MAX_LAYER_NAME_CHARS,
             FieldMode::FontQuery => crate::text::MAX_FAMILY_CHARS,
@@ -491,6 +508,9 @@ impl Field {
         };
         let ok = match mode {
             FieldMode::Digits { .. } => text.bytes().all(|byte| byte.is_ascii_digit()),
+            FieldMode::SignedDecimal => text
+                .chars()
+                .all(|ch| ch.is_ascii_digit() || matches!(ch, '-' | '.')),
             FieldMode::Hex => text.bytes().all(|byte| byte.is_ascii_hexdigit()),
             FieldMode::PdfPages => text
                 .chars()
@@ -880,6 +900,7 @@ impl Workspace {
         self.clear_adjustment(window, cx);
         self.clear_filter(window, cx);
         self.clear_pdf_previews(window, cx);
+        self.clear_text_path_preview(window, cx);
         self.form = None;
         prior_focus.as_ref().unwrap_or(&self.focus).focus(window);
         cx.notify();
@@ -999,11 +1020,11 @@ impl Workspace {
         cx.notify();
     }
 
-    fn shadow_color_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn filter_color_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(Form {
             kind:
                 FormKind::Filter {
-                    kind: FilterKind::Shadow,
+                    kind: kind @ (FilterKind::Shadow | FilterKind::Stroke),
                     color,
                     ..
                 },
@@ -1013,10 +1034,11 @@ impl Workspace {
             return;
         };
         let initial = u32::from_be_bytes([0, color[0], color[1], color[2]]);
+        let kind = *kind;
         let parent = self.form.take().map(Box::new);
         self.show_form(
             FormKind::Color {
-                target: ColorTarget::Shadow,
+                target: ColorTarget::Filter(kind),
                 hex: Field::new(format!("{initial:06X}")),
                 hsv: Hsv::from_rgb(initial),
                 drag: None,
@@ -1029,13 +1051,13 @@ impl Workspace {
         }
     }
 
-    fn use_shadow_foreground(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    fn use_filter_foreground(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let foreground = solid_color(self.color_memory.swatches[0]);
         let Some(form) = self.form.as_mut() else {
             return;
         };
         let FormKind::Filter {
-            kind: FilterKind::Shadow,
+            kind: FilterKind::Shadow | FilterKind::Stroke,
             color,
             ..
         } = &mut form.kind
@@ -1077,7 +1099,10 @@ impl Workspace {
             }
             Some(FormKind::Filter { kind, .. }) => {
                 self.resize_filter_preview(
-                    self.effect_preview_edge(*kind == FilterKind::Shadow, window),
+                    self.effect_preview_edge(
+                        matches!(kind, FilterKind::Shadow | FilterKind::Stroke),
+                        window,
+                    ),
                     window,
                     cx,
                 );
@@ -1155,6 +1180,7 @@ impl Workspace {
         match &form.kind {
             FormKind::Info(_) => self.dismiss_form(window, cx),
             FormKind::Stroke(_) => self.submit_stroke_form(window, cx),
+            FormKind::TextPath(_) => self.submit_text_path(window, cx),
             FormKind::New {
                 fields,
                 transparent,
@@ -1185,15 +1211,19 @@ impl Workspace {
                 let target = *target;
                 self.dismiss_form(window, cx);
                 match target {
-                    ColorTarget::Shadow => {
+                    ColorTarget::Filter(_) => {
                         if let Some(Form {
-                            kind: FormKind::Filter { color: shadow, .. },
+                            kind:
+                                FormKind::Filter {
+                                    color: filter_color,
+                                    ..
+                                },
                             ..
                         }) = self.form.as_mut()
                         {
-                            let alpha = shadow[3];
-                            *shadow = solid_color(color);
-                            shadow[3] = alpha;
+                            let alpha = filter_color[3];
+                            *filter_color = solid_color(color);
+                            filter_color[3] = alpha;
                         }
                         if let Some(spec) =
                             self.form.as_ref().and_then(|form| form.kind.filter_value())
@@ -1526,6 +1556,7 @@ impl Workspace {
                     }
                     FormKind::Export(draft) => draft.handle_key(event, cx),
                     FormKind::Stroke(draft) => draft.handle_key(event, cx),
+                    FormKind::TextPath(draft) => draft.handle_key(event, cx),
                     FormKind::NewLayer { name, .. }
                     | FormKind::RenameLayer { name, .. }
                     | FormKind::GradientPreset { name, .. } => {
@@ -1593,6 +1624,7 @@ impl Workspace {
                 cx.notify();
             }
         }
+        self.pump_text_path_preview(window, cx);
     }
 
     pub(super) fn drag_color(
@@ -2044,15 +2076,16 @@ impl Workspace {
         }
         let mut can_accept = true;
         let wide_pdf = matches!(form.kind, FormKind::PdfImport { .. });
-        let shadow = matches!(
+        let silhouette_filter = matches!(
             form.kind,
             FormKind::Filter {
-                kind: FilterKind::Shadow,
+                kind: FilterKind::Shadow | FilterKind::Stroke,
                 ..
             }
         );
         let adjustment = matches!(form.kind, FormKind::Adjustment { .. });
-        let responsive_effect = shadow || adjustment;
+        let responsive_effect =
+            silhouette_filter || adjustment || matches!(form.kind, FormKind::TextPath(_));
         let wide_effect = responsive_effect && window.viewport_size().width >= px(760.);
         let wide = wide_pdf && window.viewport_size().width >= px(760.);
         let pdf_width = if wide {
@@ -2123,6 +2156,18 @@ impl Workspace {
             FormKind::Stroke(draft) => {
                 can_accept = draft.prepare().is_ok();
                 (draft.title(), "Stroke", self.stroke_controls(draft, cx))
+            }
+            FormKind::TextPath(draft) => {
+                can_accept = self.can_submit_text_path(draft);
+                (
+                    "Text Along Path",
+                    if draft.applying {
+                        "Applying…"
+                    } else {
+                        "Apply"
+                    },
+                    self.text_path_controls(draft, wide_effect, cx),
+                )
             }
             FormKind::Export(draft) => {
                 can_accept = draft.prepare().is_ok();
@@ -2590,7 +2635,8 @@ impl Workspace {
                                 .bg(rgb(color)),
                         );
                 let title = match *target {
-                    ColorTarget::Shadow => "Shadow Color",
+                    ColorTarget::Filter(FilterKind::Stroke) => "Stroke Color",
+                    ColorTarget::Filter(_) => "Shadow Color",
                     ColorTarget::Swatch(0) => "Foreground Color",
                     ColorTarget::Swatch(super::text_ui::TEXT_SWATCH) => "Text Color",
                     ColorTarget::Swatch(_) => "Background Color",
@@ -2789,6 +2835,7 @@ impl Workspace {
                     FilterKind::Blur => "Blur",
                     FilterKind::Sharpen => "Sharpen",
                     FilterKind::Shadow => "Drop Shadow",
+                    FilterKind::Stroke => "Stroke",
                 };
                 let controls = div()
                     .flex()
@@ -2797,41 +2844,55 @@ impl Workspace {
                     .child(filter_controls(
                         *kind, *radius, *amount, *offset_x, *offset_y, *opacity, cx,
                     ))
-                    .when(*kind == FilterKind::Shadow, |body| {
-                        body.child(
-                            div().flex().flex_col().gap_2().child("Shadow color").child(
+                    .when(
+                        matches!(kind, FilterKind::Shadow | FilterKind::Stroke),
+                        |body| {
+                            body.child(
                                 div()
                                     .flex()
-                                    .items_center()
+                                    .flex_col()
                                     .gap_2()
+                                    .child(if *kind == FilterKind::Stroke {
+                                        "Stroke color"
+                                    } else {
+                                        "Shadow color"
+                                    })
                                     .child(
-                                        form_button("Choose Color…", false)
+                                        div()
                                             .flex()
                                             .items_center()
-                                            .justify_between()
                                             .gap_2()
-                                            .flex_1()
                                             .child(
-                                                div()
-                                                    .size(px(20.))
-                                                    .flex_shrink_0()
-                                                    .border_1()
-                                                    .border_color(rgb(BORDER))
-                                                    .rounded_sm()
-                                                    .bg(rgba(u32::from_be_bytes(color.0))),
+                                                form_button("Choose Color…", false)
+                                                    .flex()
+                                                    .items_center()
+                                                    .justify_between()
+                                                    .gap_2()
+                                                    .flex_1()
+                                                    .child(
+                                                        div()
+                                                            .size(px(20.))
+                                                            .flex_shrink_0()
+                                                            .border_1()
+                                                            .border_color(rgb(BORDER))
+                                                            .rounded_sm()
+                                                            .bg(rgba(u32::from_be_bytes(color.0))),
+                                                    )
+                                                    .on_click(cx.listener(
+                                                        |this, _, window, cx| {
+                                                            this.filter_color_form(window, cx)
+                                                        },
+                                                    )),
                                             )
-                                            .on_click(cx.listener(|this, _, window, cx| {
-                                                this.shadow_color_form(window, cx)
-                                            })),
-                                    )
-                                    .child(form_button("Use Foreground", false).on_click(
-                                        cx.listener(|this, _, window, cx| {
-                                            this.use_shadow_foreground(window, cx)
-                                        }),
-                                    )),
-                            ),
-                        )
-                    });
+                                            .child(form_button("Use Foreground", false).on_click(
+                                                cx.listener(|this, _, window, cx| {
+                                                    this.use_filter_foreground(window, cx)
+                                                }),
+                                            )),
+                                    ),
+                            )
+                        },
+                    );
                 let body = effect_dialog_layout(
                     self.effect_preview_panel(filter_preview, self.filter_generation.pending(), cx),
                     controls,
@@ -2903,12 +2964,17 @@ impl Workspace {
                                     .overflow_y_scroll()
                             },
                         ))
-                        .children(form.error.as_ref().map(|error| {
-                            div()
-                                .text_color(rgb(0xffb8ad))
-                                .text_sm()
-                                .child(error.clone())
-                        }))
+                        .children(
+                            form.error
+                                .as_ref()
+                                .filter(|_| !matches!(form.kind, FormKind::TextPath(_)))
+                                .map(|error| {
+                                    div()
+                                        .text_color(rgb(0xffb8ad))
+                                        .text_sm()
+                                        .child(error.clone())
+                                }),
+                        )
                         .child(
                             div()
                                 .flex()
@@ -3216,6 +3282,11 @@ fn filter_spec(
     match kind {
         FilterKind::Blur => FilterSpec::Blur { radius },
         FilterKind::Sharpen => FilterSpec::Sharpen { radius, amount },
+        FilterKind::Stroke => FilterSpec::Stroke {
+            width: radius,
+            opacity,
+            color,
+        },
         FilterKind::Shadow => FilterSpec::Shadow {
             radius,
             offset: (i32::from(offset_x), i32::from(offset_y)),
@@ -3234,9 +3305,17 @@ fn filter_controls(
     opacity: i16,
     cx: &Context<Workspace>,
 ) -> Div {
-    let limit = i16::try_from(filters::MAX_RADIUS).unwrap_or(32);
+    let limit = if kind == FilterKind::Stroke {
+        filters::MAX_STROKE_WIDTH as i16
+    } else {
+        filters::MAX_RADIUS as i16
+    };
     let body = div().flex().flex_col().gap_3().child(filter_slider(
-        "Radius",
+        if kind == FilterKind::Stroke {
+            "Width (px)"
+        } else {
+            "Radius"
+        },
         radius.to_string(),
         radius,
         0,
@@ -3257,6 +3336,9 @@ fn filter_controls(
                 cx,
             ))
             .child("Sharpens the active layer inside the selection."),
+        FilterKind::Stroke => body.child(filter_slider(
+            "Opacity", format!("{opacity}%"), opacity, 0, 100, FilterSlider::Opacity, cx,
+        )).child("Adds an outside outline beneath the active layer. Later source edits leave it unchanged."),
         FilterKind::Shadow => body
             .child(filter_slider(
                 "Offset X",
@@ -3865,6 +3947,11 @@ mod tests {
     #[test]
     fn remembered_filter_controls_keep_shadow_color_and_signed_offsets() {
         for value in [
+            FilterSpec::Stroke {
+                width: 128,
+                opacity: 87,
+                color: image::Rgba([12, 34, 56, 255]),
+            },
             FilterSpec::Blur { radius: 32 },
             FilterSpec::Sharpen {
                 radius: 3,

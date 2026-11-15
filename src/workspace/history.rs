@@ -1271,6 +1271,50 @@ mod tests {
     }
 
     #[test]
+    fn text_silhouette_effect_undo_redo_keeps_the_editable_source_active() {
+        for spec in [
+            crate::filters::FilterSpec::Shadow {
+                radius: 1,
+                offset: (2, 3),
+                opacity: 75,
+                color: Rgba([0, 0, 0, 255]),
+            },
+            crate::filters::FilterSpec::Stroke {
+                width: 3,
+                opacity: 80,
+                color: Rgba([20, 40, 60, 255]),
+            },
+        ] {
+            let mut session = Session::new(true, 64);
+            let id = session.current.active_layer;
+            let rendered =
+                crate::text::render("Hi", "sans-serif", 24.0, Rgba([0, 0, 0, 255])).unwrap();
+            session.current.content.set_text(id, (4, 4), rendered);
+            let source = session.current.content.layer(id).unwrap().clone();
+            session.edit(
+                |content| content.place_layer_filter(id, spec).is_ok(),
+                &LIMITS,
+            );
+            assert!(session.history.is_dirty());
+            assert_eq!(session.current.active_layer, id);
+            let shadow = session.current.content.layers()[0].id;
+            assert_eq!(session.current.content.shadow_source(shadow), Some(id));
+            assert!(session.undo());
+            assert!(!session.history.is_dirty());
+            assert_eq!(session.current.content.layers().len(), 1);
+            assert_eq!(session.current.content.layer(id).unwrap().text, source.text);
+            assert!(Arc::ptr_eq(
+                &session.current.content.layer(id).unwrap().pixels,
+                &source.pixels
+            ));
+            assert!(session.redo());
+            assert_eq!(session.current.active_layer, id);
+            assert_eq!(session.current.content.shadow_source(shadow), Some(id));
+            assert_eq!(session.current.content.layer(id).unwrap().text, source.text);
+        }
+    }
+
+    #[test]
     fn undoing_rasterize_restores_the_text_source_and_pixels() {
         use crate::preview::Dirty;
 
