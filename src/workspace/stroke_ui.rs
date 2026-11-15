@@ -61,31 +61,38 @@ enum OutlineRequest {
 
 impl Workspace {
     pub(super) fn bind_stroke_actions(&self, root: Div, cx: &Context<Self>) -> Div {
-        let ready = self.active_tab().filter(|tab| !tab.busy()).filter(|tab| {
-            tab.document
-                .content
-                .layer(tab.active_layer)
-                .is_some_and(|layer| layer.visible && layer.text.is_none())
-                && self.preferences.brushes.outline.opacity > 0
-        });
-        let path = ready.is_some_and(|tab| {
-            tab.document
-                .content
-                .active_path()
-                .is_some_and(|path| path.visible && path.anchors.len() >= 2)
-        });
-        let selection = ready.is_some_and(|tab| {
-            !matches!(tab.selection, Selection::Empty | Selection::Unrestricted)
-        });
+        let path = self.can_stroke_outline(StrokeSource::Path);
+        let selection = self.can_stroke_outline(StrokeSource::Selection);
         root.when(path, |root| {
             root.on_action(cx.listener(|this, _: &StrokePath, window, cx| {
-                this.stroke_outline(StrokeSource::Path, window, cx);
+                this.stroke_form(StrokeSource::Path, window, cx);
             }))
         })
         .when(selection, |root| {
             root.on_action(cx.listener(|this, _: &StrokeSelection, window, cx| {
-                this.stroke_outline(StrokeSource::Selection, window, cx);
+                this.stroke_form(StrokeSource::Selection, window, cx);
             }))
+        })
+    }
+
+    pub(super) fn can_stroke_outline(&self, source: StrokeSource) -> bool {
+        self.active_tab().is_some_and(|tab| {
+            !tab.busy()
+                && tab
+                    .document
+                    .content
+                    .layer(tab.active_layer)
+                    .is_some_and(|layer| layer.visible && layer.text.is_none())
+                && match source {
+                    StrokeSource::Path => tab
+                        .document
+                        .content
+                        .active_path()
+                        .is_some_and(|path| path.visible && path.anchors.len() >= 2),
+                    StrokeSource::Selection => {
+                        !matches!(tab.selection, Selection::Empty | Selection::Unrestricted)
+                    }
+                }
         })
     }
 
@@ -102,7 +109,30 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.refuse_text_pixels(false, cx) {
+        let Some(tab) = self.active_tab() else { return };
+        let layer = tab.active_layer;
+        let path = if source == StrokeSource::Path {
+            tab.document.content.active_path().map(|path| path.id)
+        } else {
+            None
+        };
+        if self.commit_numeric_with_followup(
+            super::numeric::NumericFollowup::Stroke {
+                source,
+                dialog: false,
+                layer,
+                path,
+            },
+            window,
+            cx,
+        ) {
+            return;
+        }
+        if self.finish_text(window, cx) {
+            self.defer_after_text(move |this, window, cx| this.stroke_outline(source, window, cx));
+            return;
+        }
+        if self.refuse_pending_file_edit(cx) || self.refuse_text_pixels(false, cx) {
             return;
         }
         match self.outline_request(source) {

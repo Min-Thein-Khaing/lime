@@ -938,7 +938,7 @@ mod tests {
     fn accelerator_labels_follow_the_global_key_bindings() {
         let keymap = Keymap::new(vec![
             KeyBinding::new("ctrl-n", NewImage, None),
-            KeyBinding::new("ctrl-shift-v", crate::commands::PasteAsLayer, None),
+            KeyBinding::new("ctrl-shift-v", crate::commands::PasteImage, None),
             KeyBinding::new("escape", crate::commands::CancelMove, Some("Move")),
         ]);
         let menus = vec![Menu {
@@ -947,7 +947,7 @@ mod tests {
                 MenuItem::action("New Image…", NewImage),
                 MenuItem::separator(),
                 MenuItem::action("Save", SaveImage),
-                MenuItem::action("Paste as New Layer", crate::commands::PasteAsLayer),
+                MenuItem::action("Paste", crate::commands::PasteImage),
             ],
         }];
         let plan = plan(menus, &keymap);
@@ -960,7 +960,7 @@ mod tests {
             Some("Ctrl+N")
         );
         assert_eq!(
-            find_command(&plan, "Paste as New Layer")
+            find_command(&plan, "Paste")
                 .accelerator
                 .as_ref()
                 .map(ToString::to_string)

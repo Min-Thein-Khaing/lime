@@ -48,6 +48,10 @@ to give the canvas more room; use the button on the narrow right rail to reopen 
 Fold secondary option sections with the mouse or keyboard to leave more room for Layers and Paths;
 their headers summarize active settings. Oval Select uses **1:1** for circles.
 Aspect-ratio choices also reshape the current selection or crop box.
+Layer → Transform and the toolbox use the same Scale Layer, Rotate, Flip, and
+Perspective tools. Use Edit → **Stroke Path…** or **Stroke Selection…** to choose
+stroke settings; the Paths panel's **Stroke** button applies the shared settings
+directly. **Visible Paths to Selection** combines visible closed paths.
 
 Crop and paint strokes can start outside the canvas; crop stays within the image.
 Crop ignores drags whose area stays entirely outside the image.

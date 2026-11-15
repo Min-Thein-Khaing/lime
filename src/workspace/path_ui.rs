@@ -266,15 +266,7 @@ impl Workspace {
     }
 
     pub(super) fn bind_path_actions(&self, root: Div, cx: &Context<Self>) -> Div {
-        let available = self.active_tab().is_some_and(|tab| {
-            !tab.busy()
-                && tab
-                    .document
-                    .content
-                    .paths()
-                    .iter()
-                    .any(|path| path.closed && path.anchors.len() >= 3)
-        });
+        let available = self.can_convert_visible_paths();
         let selection = self.active_tab().is_some_and(|tab| {
             !tab.busy()
                 && tab.document.content.paths().len() < crate::paths::MAX_PATHS
@@ -370,20 +362,8 @@ impl Workspace {
                     this.select_path(id, cx);
                 }))
         });
-        let enabled = tab.is_some_and(|tab| {
-            !tab.busy()
-                && tab
-                    .document
-                    .content
-                    .active_path()
-                    .is_some_and(|path| path.visible && path.anchors.len() >= 2)
-                && tab
-                    .document
-                    .content
-                    .layer(tab.active_layer)
-                    .is_some_and(|layer| layer.visible && layer.text.is_none())
-                && self.preferences.brushes.outline.opacity > 0
-        });
+        let enabled = self.can_stroke_outline(StrokeSource::Path)
+            && self.preferences.brushes.outline.opacity > 0;
         let style = self.preferences.path_stroke_style;
         let selection = tab.is_some_and(|tab| {
             !tab.busy()
@@ -411,11 +391,16 @@ impl Workspace {
                 panel.child(div().text_color(rgb(MUTED)).child("No paths yet."))
             })
             .child(
-                option_action("Path to Selection", false)
+                option_action("Visible Paths to Selection", false)
                     .w_full()
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.path_to_selection(window, cx);
-                    })),
+                    .when(self.can_convert_visible_paths(), |button| {
+                        button.on_click(cx.listener(|this, _, window, cx| {
+                            this.path_to_selection(window, cx);
+                        }))
+                    })
+                    .when(!self.can_convert_visible_paths(), |button| {
+                        button.opacity(0.45).cursor(gpui::CursorStyle::Arrow)
+                    }),
             )
             .child(
                 option_action("Selection to Path", false)
@@ -975,8 +960,20 @@ impl Workspace {
         );
     }
 
+    fn can_convert_visible_paths(&self) -> bool {
+        self.active_tab().is_some_and(|tab| {
+            !tab.busy()
+                && tab
+                    .document
+                    .content
+                    .paths()
+                    .iter()
+                    .any(|path| path.visible && path.closed && path.anchors.len() >= 3)
+        })
+    }
+
     pub(super) fn path_to_selection(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.active_tab().is_none_or(|tab| tab.busy()) {
+        if !self.can_convert_visible_paths() {
             return;
         }
         self.start_change(

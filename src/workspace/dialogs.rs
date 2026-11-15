@@ -1,5 +1,6 @@
 mod export;
 mod pdf_input;
+mod stroke;
 
 use std::{cell::Cell, path::PathBuf, rc::Rc, sync::Arc};
 
@@ -61,6 +62,7 @@ pub(super) enum FormKind {
         drag: Option<ColorControl>,
     },
     Export(ExportDraft),
+    Stroke(stroke::StrokeDraft),
     NewLayer {
         name: Field,
         fill: LayerFill,
@@ -82,7 +84,6 @@ pub(super) enum FormKind {
         width: Field,
         height: Field,
         source: (u32, u32),
-        layer: bool,
         lock: bool,
         active: usize,
         resample: Resample,
@@ -748,42 +749,15 @@ impl Workspace {
         let Some((width, height)) = self.active_tab().map(|tab| tab.document.content.size()) else {
             return;
         };
-        self.scale_form(width, height, false, window, cx);
+        self.scale_form(width, height, window, cx);
     }
 
-    pub(super) fn scale_layer_form(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.finish_text(window, cx) {
-            self.defer_after_text(|this, window, cx| this.scale_layer_form(window, cx));
-            return;
-        }
-        if self.refuse_text_pixels(false, cx) {
-            return;
-        }
-        let Some((width, height)) = self.active_tab().and_then(|tab| {
-            tab.document
-                .content
-                .layer(tab.active_layer)
-                .map(|layer| layer.pixels.dimensions())
-        }) else {
-            return;
-        };
-        self.scale_form(width, height, true, window, cx);
-    }
-
-    fn scale_form(
-        &mut self,
-        width: u32,
-        height: u32,
-        layer: bool,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn scale_form(&mut self, width: u32, height: u32, window: &mut Window, cx: &mut Context<Self>) {
         self.show_form(
             FormKind::Scale {
                 width: Field::new(width.to_string()),
                 height: Field::new(height.to_string()),
                 source: (width, height),
-                layer,
                 lock: true,
                 active: 0,
                 resample: Resample::Bilinear,
@@ -1180,6 +1154,7 @@ impl Workspace {
         };
         match &form.kind {
             FormKind::Info(_) => self.dismiss_form(window, cx),
+            FormKind::Stroke(_) => self.submit_stroke_form(window, cx),
             FormKind::New {
                 fields,
                 transparent,
@@ -1319,7 +1294,6 @@ impl Workspace {
                 width,
                 height,
                 source,
-                layer,
                 lock,
                 active,
                 resample,
@@ -1340,9 +1314,9 @@ impl Workspace {
                     cx.notify();
                     return;
                 }
-                let (layer, resample) = (*layer, *resample);
+                let resample = *resample;
                 self.dismiss_form(window, cx);
-                self.apply_scale(width, height, resample, layer, window, cx);
+                self.apply_scale(width, height, resample, window, cx);
             }
             FormKind::Canvas {
                 width,
@@ -1551,6 +1525,7 @@ impl Workspace {
                         }
                     }
                     FormKind::Export(draft) => draft.handle_key(event, cx),
+                    FormKind::Stroke(draft) => draft.handle_key(event, cx),
                     FormKind::NewLayer { name, .. }
                     | FormKind::RenameLayer { name, .. }
                     | FormKind::GradientPreset { name, .. } => {
@@ -2145,6 +2120,10 @@ impl Workspace {
                         .child(div().child("Canvas background").child(background.mt_1())),
                 )
             }
+            FormKind::Stroke(draft) => {
+                can_accept = draft.prepare().is_ok();
+                (draft.title(), "Stroke", self.stroke_controls(draft, cx))
+            }
             FormKind::Export(draft) => {
                 can_accept = draft.prepare().is_ok();
                 ("Export", "Export…", self.export_controls(draft, cx))
@@ -2641,13 +2620,12 @@ impl Workspace {
             FormKind::Scale {
                 width,
                 height,
-                layer,
                 lock,
                 active,
                 resample,
                 ..
             } => (
-                if *layer { "Scale Layer" } else { "Scale Image" },
+                "Scale Image",
                 "Scale",
                 div()
                     .flex()

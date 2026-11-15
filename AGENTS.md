@@ -65,6 +65,20 @@ README.md is a compact user-facing overview and download page. Keep detailed
 tool instructions, build/CI details, validation status, and release preparation
 notes out of it. The UI provides tool help; a dedicated guide website is planned.
 
+## Menu and tool consistency
+
+Layer → Transform and Tools → Transform share SelectTool actions for Scale Layer,
+Rotate, Flip, and Perspective. The legacy layer-scale dialog/action is removed;
+Scale Image… remains a document-wide numeric dialog. Image → Transform contains
+only document-wide quarter-turn rotations/flips, never the layer-only Perspective
+tool. All four selection tools appear under Select and Tools → Selection, with
+Rectangle Select as the full menu name. Eyedropper names the sampling tool;
+Blur Brush/Sharpen Brush menu labels distinguish retouch tools from filters.
+Dialog commands, including Invert… and menu strokes, use ellipses. Paste has one
+menu action; Cmd/Ctrl+V and the retained Cmd/Ctrl+Shift+V image-paste alias route
+to it. Text paste retains its existing context. Fit Layer to Canvas still previews
+inside an active Scale session and applies immediately from other tools.
+
 ## Current product scope
 
 Lime supports layered raster editing. The empty workspace can open a
@@ -229,7 +243,7 @@ The Layer menu can align a layer, proportionally Fit Layer to Canvas, or crop
 it to its opaque pixels. Fit Layer to Canvas also appears in Scale Layer options,
 scales the complete raster (including transparent margins), and centers it. It
 may enlarge smaller layers and uses the workspace's selected resampling. Hidden,
-position-locked, and editable-text layers cannot use it. Layer to Image Size
+position-locked, and editable-text layers cannot use it. Layer to Canvas Size
 instead crops/pads at the existing canvas pixel positions. Image → Crop to Content
 does the same for the canvas. Image and Layer transforms rotate and flip
 by quarter turns. Rotate, Flip, and Perspective preview the active layer and
@@ -396,16 +410,23 @@ anchor each frame to avoid drift. A click without movement does not couple
 handles; repeated identity shaping creates no history. Geometry, not new anchor
 mode metadata, persists in the existing project format. Each group gesture or
 shaping/deletion action is one undo step and keeps raster buffers shared.
-Path to Selection fills every closed path with
-nonzero winding. Selection to Path creates closed paths from the current
+Visible Paths to Selection fills all visible closed paths with
+nonzero winding. Both its menu and panel action require a usable visible closed
+path; hidden-only/open-only paths cannot clear an existing selection. Selection to Path creates closed paths from the current
 selection. Selection ants paint above path outlines so an overlapping path
 cannot hide the selection; path handles remain above both. Image transforms,
 scale, canvas size, and crop move those paths with the image. A Paths tab beside Layers lists every path, selects one, toggles its
 visibility, or deletes it. Escape or switching tools stops the
 current path, and the next Path click starts a new one. Stroke in the Paths tab
 paints the selected visible path onto the active layer with the foreground
-color, using a Pencil or Brush stroke and an adjustable size. Stroke Selection
-remains on the Edit menu. The contour stays in canvas coordinates, and the
+color, using a Pencil or Brush stroke and an adjustable size. Edit → Stroke Path…
+and Stroke Selection… open one shared settings dialog for style, size, spacing,
+hardness, opacity, flow, and buildup. Draft edits are local until Stroke;
+Cancel leaves both settings and pixels intact. Numeric/text edits finish first,
+and deferred stroke actions validate the original context. The dialog validates
+tab, layer, generation, and selected path before applying. Both menu and panel
+use the same stroke engine/preferences; the panel's Stroke remains immediate.
+Menu actions remain available at zero stored opacity so it can be changed. The contour stays in canvas coordinates, and the
 brush is not clipped to it. Text (`T`) edits text in place with a caret.
 A click on empty canvas starts new text, a click on a visible text layer opens
 it, and a click inside the current text moves the caret. A click within
@@ -1151,7 +1172,7 @@ app icons; they are source assets, not generated leftovers.
   selection tools create/edit masks through the Layer menu; there is no separate
   paint-mask target. Disabled masks retain storage. All linked geometry transforms
   map masks alongside pixels, including uniform-source warps whose mask alone
-  changes. Layer to Image Size uses replacement admission for both pixels and
+  changes. Layer to Canvas Size uses replacement admission for both pixels and
   masks, subtracting retained data that will be baked. Adjustment/filter preview
   composition applies enabled masks to every stack layer, just like commits.
   Copy/shadow silhouettes honor enabled masks. Text masks are rejected.

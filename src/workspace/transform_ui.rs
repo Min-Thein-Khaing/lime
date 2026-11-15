@@ -7,7 +7,7 @@ use super::Workspace;
 use super::canvas_tools::PreviewGeometry;
 use super::layers::{self, MovePaint};
 use crate::commands::{
-    CanvasSize, ImageAdjust, LayerAdjust, ScaleImage, ScaleLayer, SetGrayscale, SetRgb, Tool,
+    CanvasSize, ImageAdjust, LayerAdjust, ScaleImage, SetGrayscale, SetRgb, Tool,
 };
 use crate::document::{self, LayerId};
 use crate::preview::{Dirty, PixelRect};
@@ -30,11 +30,6 @@ impl Workspace {
         .on_action(cx.listener(|this, _: &ScaleImage, window, cx| {
             this.scale_image_form(window, cx);
         }))
-        .when(!self.active_position_locked(), |root| {
-            root.on_action(cx.listener(|this, _: &ScaleLayer, window, cx| {
-                this.scale_layer_form(window, cx);
-            }))
-        })
         .on_action(
             cx.listener(|this, _: &CanvasSize, window, cx| this.canvas_size_form(window, cx)),
         )
@@ -115,51 +110,39 @@ impl Workspace {
         width: u32,
         height: u32,
         resample: transform::Resample,
-        layer: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let Some(id) = self.active_tab().map(|tab| tab.active_layer) else {
-            return;
-        };
-        if !self.transform_enabled() || self.refuse_text_pixels(!layer, cx) {
+        if !self.transform_enabled() || self.refuse_text_pixels(true, cx) {
             return;
         }
         self.edit_content(
             move |content, _, selection| {
-                if layer {
-                    if content.scale_layer(id, width, height, resample) {
-                        Dirty::Canvas
-                    } else {
-                        Dirty::None
-                    }
-                } else {
-                    let old = content.size();
-                    let previous = selection.clone();
-                    if !content.scale_image(width, height, resample) {
-                        return Dirty::None;
-                    }
-                    if matches!(previous, Selection::Mask(_) | Selection::RoundedRect(_)) {
-                        *selection = previous.scale_mask(old, content.size());
-                        return Dirty::Canvas;
-                    }
-                    let antialias = previous.is_antialiased();
-                    *selection = match previous {
-                        Selection::Rect(rect) | Selection::Inverse(rect) => previous.moved_box(
-                            transform::scale_rect(rect, old, content.size()),
-                            content.size().0,
-                            content.size().1,
-                        ),
-                        Selection::Ellipse(ellipse) => Selection::ellipse_rect_quality(
-                            transform::scale_rect(ellipse.rect(), old, content.size()),
-                            content.size().0,
-                            content.size().1,
-                            antialias,
-                        ),
-                        other => other,
-                    };
-                    Dirty::Canvas
+                let old = content.size();
+                let previous = selection.clone();
+                if !content.scale_image(width, height, resample) {
+                    return Dirty::None;
                 }
+                if matches!(previous, Selection::Mask(_) | Selection::RoundedRect(_)) {
+                    *selection = previous.scale_mask(old, content.size());
+                    return Dirty::Canvas;
+                }
+                let antialias = previous.is_antialiased();
+                *selection = match previous {
+                    Selection::Rect(rect) | Selection::Inverse(rect) => previous.moved_box(
+                        transform::scale_rect(rect, old, content.size()),
+                        content.size().0,
+                        content.size().1,
+                    ),
+                    Selection::Ellipse(ellipse) => Selection::ellipse_rect_quality(
+                        transform::scale_rect(ellipse.rect(), old, content.size()),
+                        content.size().0,
+                        content.size().1,
+                        antialias,
+                    ),
+                    other => other,
+                };
+                Dirty::Canvas
             },
             window,
             cx,

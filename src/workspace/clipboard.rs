@@ -8,9 +8,7 @@ use image::RgbaImage;
 
 use super::Workspace;
 use super::pdf_ui::PdfTarget;
-use crate::commands::{
-    CopyImage, CutImage, NewFromClipboard, OpenAsLayers, PasteAsLayer, PasteImage,
-};
+use crate::commands::{CopyImage, CutImage, NewFromClipboard, OpenAsLayers, PasteImage};
 use crate::document::{self, ImageLayer, InsertStop};
 use crate::preview::Dirty;
 use crate::selection::Selection;
@@ -61,9 +59,6 @@ impl Workspace {
             root = root
                 .on_action(
                     cx.listener(|this, _: &PasteImage, window, cx| this.paste_layer(window, cx)),
-                )
-                .on_action(
-                    cx.listener(|this, _: &PasteAsLayer, window, cx| this.paste_layer(window, cx)),
                 )
                 .on_action(cx.listener(|this, _: &OpenAsLayers, window, cx| {
                     this.open_as_layers(window, cx);
@@ -188,7 +183,7 @@ impl Workspace {
         .detach();
     }
 
-    // Paste and Paste as New Layer both add a layer. There is no floating paste.
+    // Image Paste adds a layer. There is no floating paste.
     fn paste_layer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if !self.clipboard_target() {
             return;

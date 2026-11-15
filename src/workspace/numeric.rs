@@ -302,6 +302,12 @@ struct NumericGeometry {
 pub(super) enum NumericFollowup {
     Key(Keystroke),
     Export,
+    Stroke {
+        source: super::stroke_ui::StrokeSource,
+        dialog: bool,
+        layer: crate::document::LayerId,
+        path: Option<crate::paths::PathId>,
+    },
     SelectionRadius(i32),
     Focus(NumericField),
     Effect {
@@ -968,6 +974,29 @@ impl Workspace {
                         }
                         NumericFollowup::SelectionRadius(delta) => {
                             this.nudge_selection_radius(delta, window, cx);
+                            None
+                        }
+                        NumericFollowup::Stroke {
+                            source,
+                            dialog,
+                            layer,
+                            path,
+                        } => {
+                            if this.active_tab().is_some_and(|tab| {
+                                tab.active_layer == layer
+                                    && path.is_none_or(|id| {
+                                        tab.document
+                                            .content
+                                            .active_path()
+                                            .is_some_and(|active| active.id == id)
+                                    })
+                            }) {
+                                if dialog {
+                                    this.stroke_form(source, window, cx);
+                                } else {
+                                    this.stroke_outline(source, window, cx);
+                                }
+                            }
                             None
                         }
                         NumericFollowup::Export => {

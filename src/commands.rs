@@ -61,7 +61,6 @@ actions!(
         CutImage,
         CopyImage,
         PasteImage,
-        PasteAsLayer,
         FeatherSelection,
         GrowSelection,
         ShrinkSelection,
@@ -73,7 +72,6 @@ actions!(
         CancelGradient,
         CancelStroke,
         ScaleImage,
-        ScaleLayer,
         CanvasSize,
         SetRgb,
         SetGrayscale,
@@ -175,7 +173,7 @@ impl Tool {
                 "Click to zoom in. Control-click to zoom out.",
             ),
             Self::Eyedropper => (
-                "Color Picker",
+                "Eyedropper",
                 "eyedropper",
                 "Click a pixel to set the foreground color.",
             ),
@@ -346,7 +344,7 @@ impl Tool {
                 "Click empty canvas to add text, or click a text layer to edit it. Drag, Shift-click, or Shift+arrows select a range; Copy/Cut use it and typing/Paste replace it. Option+Left/Right and Option+Backspace/Delete on macOS (Ctrl on Windows) work by word; Shift extends the selection. Return adds a line. Font/style controls affect the whole layer. In the font picker, type to filter; arrows browse, Return chooses, and Escape closes it. Outside the picker, Escape, Cmd/Ctrl-Enter, clicking outside, or changing tools/layers/tabs commits. Undo steps through typing first. Rasterize Text enables pixel tools."
             }
             Self::Path => {
-                "Click to add anchors; drag to pull their handles. Alt-click a curve to insert an anchor without changing its shape; drag it to reposition the new point. Anchor and handle hits take priority. Shift-click anchors to add/remove them from a selection on one path; then drag any selected anchor to move the group and its handles. All Anchors and Deselect are in Tool Options. Clicking an unselected anchor selects only it. Click the first anchor, selected alone, to close the path. Corner (collapse handles), Smooth (align/create handles), and Delete/Backspace apply to the selected group in one undo step; with no selection, Delete removes the last anchor. Handle Drag uses Independent, Aligned (keep the opposite length), or Symmetric (mirror both direction and length); it changes future handle drags. Escape or changing tools ends the current path; the next click starts a new one. Use the Paths tab to select, show, hide, delete, convert, or stroke paths. Stroke uses the foreground color and needs a visible path and a paintable raster layer."
+                "Click to add anchors; drag to pull their handles. Alt-click a curve to insert an anchor without changing its shape; drag it to reposition the new point. Anchor and handle hits take priority. Shift-click anchors to add/remove them from a selection on one path; then drag any selected anchor to move the group and its handles. All Anchors and Deselect are in Tool Options. Clicking an unselected anchor selects only it. Click the first anchor, selected alone, to close the path. Corner (collapse handles), Smooth (align/create handles), and Delete/Backspace apply to the selected group in one undo step; with no selection, Delete removes the last anchor. Handle Drag uses Independent, Aligned (keep the opposite length), or Symmetric (mirror both direction and length); it changes future handle drags. Escape or changing tools ends the current path; the next click starts a new one. Use the Paths tab to select, show, hide, delete, convert, or stroke paths. The panel Stroke uses the foreground color and shared stroke settings. Edit → Stroke Path… or Stroke Selection… opens those settings. A path stroke needs a visible path and a paintable raster layer."
             }
         }
     }
@@ -552,7 +550,7 @@ pub fn register(cx: &mut App) {
         KeyBinding::new(&format!("{primary}-c"), CopyImage, None),
         KeyBinding::new(&format!("{primary}-x"), CutImage, None),
         KeyBinding::new(&format!("{primary}-v"), PasteImage, None),
-        KeyBinding::new(&format!("{primary}-shift-v"), PasteAsLayer, None),
+        KeyBinding::new(&format!("{primary}-shift-v"), PasteImage, None),
         KeyBinding::new(&format!("{primary}-a"), SelectAll, None),
         KeyBinding::new(&format!("{primary}-shift-a"), SelectNone, None),
         KeyBinding::new(&format!("{primary}-i"), InvertSelection, None),
@@ -750,18 +748,19 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                 MenuItem::action("Cut", CutImage),
                 MenuItem::action("Copy", CopyImage),
                 MenuItem::action("Paste", PasteImage),
-                MenuItem::action("Paste as New Layer", PasteAsLayer),
                 MenuItem::action("Clear to Transparency", ClearToTransparency),
                 MenuItem::separator(),
-                MenuItem::action("Stroke Path", StrokePath),
-                MenuItem::action("Stroke Selection", StrokeSelection),
+                MenuItem::action("Stroke Path…", StrokePath),
+                MenuItem::action("Stroke Selection…", StrokeSelection),
             ],
         ),
         menu(
             "Select",
             vec![
-                MenuItem::action("Rectangle Select", SelectTool(Tool::Select)),
-                MenuItem::action("Oval Select", SelectTool(Tool::OvalSelect)),
+                tool(Tool::Select),
+                tool(Tool::OvalSelect),
+                tool(Tool::FreeSelect),
+                tool(Tool::MagicWand),
                 MenuItem::separator(),
                 MenuItem::action("Select All", SelectAll),
                 MenuItem::action("Select None", SelectNone),
@@ -771,7 +770,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                 MenuItem::action("Grow…", GrowSelection),
                 MenuItem::action("Shrink…", ShrinkSelection),
                 MenuItem::separator(),
-                MenuItem::action("Path to Selection", PathToSelection),
+                MenuItem::action("Visible Paths to Selection", PathToSelection),
                 MenuItem::action("Selection to Path", SelectionToPath),
             ],
         ),
@@ -856,9 +855,8 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                         MenuItem::action("Center in Image", AlignLayer::Both),
                     ],
                 )),
-                MenuItem::action("Scale Layer…", ScaleLayer),
                 MenuItem::action("Fit Layer to Canvas", FitLayerToCanvas),
-                MenuItem::action("Layer to Image Size", LayerToImageSize),
+                MenuItem::action("Layer to Canvas Size", LayerToImageSize),
                 MenuItem::action("Crop to Content", CropLayerToContent),
                 MenuItem::action("Rasterize Text Layer", RasterizeText),
             ],
@@ -892,7 +890,7 @@ pub(crate) fn application_menus(macos: bool) -> Vec<Menu> {
                 MenuItem::action("Curves…", Curves),
                 MenuItem::separator(),
                 MenuItem::action("Desaturate…", Desaturate),
-                MenuItem::action("Invert", InvertColors),
+                MenuItem::action("Invert…", InvertColors),
             ],
         ),
         menu(
@@ -939,8 +937,6 @@ fn image_transform_menu() -> MenuItem {
             MenuItem::separator(),
             MenuItem::action("Flip Horizontally", ImageAdjust::FlipHorizontal),
             MenuItem::action("Flip Vertically", ImageAdjust::FlipVertical),
-            MenuItem::separator(),
-            tool(Tool::Perspective),
         ],
     ))
 }
@@ -949,14 +945,17 @@ fn layer_transform_menu() -> MenuItem {
     MenuItem::submenu(menu(
         "Transform",
         vec![
+            tool(Tool::ScaleLayer),
+            tool(Tool::Rotate),
+            tool(Tool::Flip),
+            tool(Tool::Perspective),
+            MenuItem::separator(),
             MenuItem::action("Rotate 90° Left", LayerAdjust::RotateLeft),
             MenuItem::action("Rotate 90° Right", LayerAdjust::RotateRight),
             MenuItem::action("Rotate 180°", LayerAdjust::RotateHalf),
             MenuItem::separator(),
             MenuItem::action("Flip Horizontally", LayerAdjust::FlipHorizontal),
             MenuItem::action("Flip Vertically", LayerAdjust::FlipVertical),
-            MenuItem::separator(),
-            tool(Tool::Perspective),
         ],
     ))
 }
@@ -996,7 +995,13 @@ fn menu(name: &'static str, items: Vec<MenuItem>) -> Menu {
 }
 
 fn tool(tool: Tool) -> MenuItem {
-    MenuItem::action(tool.info().label, SelectTool(tool))
+    let label = match tool {
+        Tool::Select => "Rectangle Select",
+        Tool::Blur => "Blur Brush",
+        Tool::Sharpen => "Sharpen Brush",
+        _ => tool.info().label,
+    };
+    MenuItem::action(label, SelectTool(tool))
 }
 
 #[cfg(test)]
@@ -1149,20 +1154,21 @@ mod tests {
             "Cut",
             "Copy",
             "Paste",
-            "Paste as New Layer",
             "Clear to Transparency",
-            "Stroke Path",
-            "Stroke Selection",
+            "Stroke Path…",
+            "Stroke Selection…",
             "menu:Select",
             "Rectangle Select",
             "Oval Select",
+            "Free Select",
+            "Magic Wand",
             "Select All",
             "Select None",
             "Invert Selection",
             "Feather…",
             "Grow…",
             "Shrink…",
-            "Path to Selection",
+            "Visible Paths to Selection",
             "Selection to Path",
             "menu:View",
             "menu:Zoom",
@@ -1191,7 +1197,6 @@ mod tests {
             "Rotate 180°",
             "Flip Horizontally",
             "Flip Vertically",
-            "Perspective",
             "Scale Image…",
             "Canvas Size…",
             "Crop",
@@ -1224,12 +1229,15 @@ mod tests {
             "Raise Layer",
             "Lower Layer",
             "menu:Transform",
+            "Scale Layer",
+            "Rotate",
+            "Flip",
+            "Perspective",
             "Rotate 90° Left",
             "Rotate 90° Right",
             "Rotate 180°",
             "Flip Horizontally",
             "Flip Vertically",
-            "Perspective",
             "menu:Align",
             "Align Top",
             "Align Bottom",
@@ -1238,9 +1246,8 @@ mod tests {
             "Center Horizontally in Image",
             "Center Vertically in Image",
             "Center in Image",
-            "Scale Layer…",
             "Fit Layer to Canvas",
-            "Layer to Image Size",
+            "Layer to Canvas Size",
             "Crop to Content",
             "Rasterize Text Layer",
             "menu:Tools",
@@ -1252,7 +1259,7 @@ mod tests {
             "Perspective",
             "Scale Layer",
             "menu:Selection",
-            "Select",
+            "Rectangle Select",
             "Oval Select",
             "Free Select",
             "Magic Wand",
@@ -1260,8 +1267,8 @@ mod tests {
             "Pencil",
             "Brush",
             "Eraser",
-            "Blur",
-            "Sharpen",
+            "Blur Brush",
+            "Sharpen Brush",
             "Clone Stamp",
             "menu:Fill",
             "Bucket Fill",
@@ -1272,7 +1279,7 @@ mod tests {
             "menu:Utilities",
             "Pan",
             "Zoom",
-            "Color Picker",
+            "Eyedropper",
             "Reset Current Tool",
             "Reset All Tool Settings…",
             "menu:Colors",
@@ -1286,7 +1293,7 @@ mod tests {
             "Levels…",
             "Curves…",
             "Desaturate…",
-            "Invert",
+            "Invert…",
             "menu:Filters",
             "Repeat Last Effect",
             "Reopen Last Effect…",
@@ -1331,6 +1338,69 @@ mod tests {
                 .collect::<Vec<_>>()
         );
         assert!(!macos.iter().any(|label| label.contains("Planned")));
+    }
+
+    #[test]
+    fn menu_tools_share_actions_and_image_transforms_never_target_a_layer() {
+        fn child<'a>(menu: &'a Menu, name: &str) -> &'a Menu {
+            menu.items
+                .iter()
+                .find_map(|item| match item {
+                    MenuItem::Submenu(menu) if menu.name == name => Some(menu),
+                    _ => None,
+                })
+                .unwrap()
+        }
+        fn tools(menu: &Menu) -> Vec<Tool> {
+            menu.items
+                .iter()
+                .filter_map(|item| match item {
+                    MenuItem::Action { action, .. } => action
+                        .as_any()
+                        .downcast_ref::<SelectTool>()
+                        .map(|tool| tool.0),
+                    _ => None,
+                })
+                .collect()
+        }
+        for macos in [true, false] {
+            let menus = application_menus(macos);
+            let top = |name: &str| menus.iter().find(|menu| menu.name == name).unwrap();
+            let image = child(top("Image"), "Transform");
+            assert!(tools(image).is_empty());
+            assert!(image.items.iter().all(|item| match item {
+                MenuItem::Action { action, .. } => action.as_any().is::<ImageAdjust>(),
+                MenuItem::Separator => true,
+                _ => false,
+            }));
+            let layer_tools = tools(child(top("Layer"), "Transform"));
+            assert_eq!(
+                layer_tools,
+                [
+                    Tool::ScaleLayer,
+                    Tool::Rotate,
+                    Tool::Flip,
+                    Tool::Perspective
+                ]
+            );
+            let all_tools = tools(child(top("Tools"), "Transform"));
+            assert!(layer_tools.iter().all(|tool| all_tools.contains(tool)));
+            assert_eq!(
+                tools(top("Select")),
+                tools(child(top("Tools"), "Selection"))
+            );
+            assert_eq!(
+                top("Edit")
+                    .items
+                    .iter()
+                    .filter(|item| match item {
+                        MenuItem::Action { action, .. } => action.as_any().is::<PasteImage>(),
+                        _ => false,
+                    })
+                    .count(),
+                1
+            );
+        }
     }
 
     #[test]
