@@ -25,7 +25,7 @@ Windows requires Windows 10 or later, DirectX, and the Microsoft Visual C++
 an X11 or Wayland session, and a file chooser portal. See the
 [Linux requirements](linux/README.txt) for runtime packages.
 
-Windows downloads are unsigned. The macOS app is ad hoc signed and not notarized.
+Windows downloads are unsigned. The macOS app is Developer ID signed and notarized by Apple.
 
 ## Features
 

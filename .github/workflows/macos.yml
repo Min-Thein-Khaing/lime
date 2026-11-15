@@ -38,6 +38,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --check
 
+      - name: Check signing and notarization failure handling
+        run: python3 scripts/test-macos-signing.py
+
       - name: Run Clippy including test targets
         run: cargo clippy --all-targets --locked -- -D warnings
 
@@ -47,7 +50,7 @@ jobs:
       - name: Run release rendering and stroke benchmarks
         run: cargo test --release --locked benchmark -- --ignored --nocapture
 
-      - name: Build and verify the signed release app
+      - name: Build and verify the release app bundle
         run: |
           ./scripts/bundle-macos.sh
           lipo dist/Lime.app/Contents/MacOS/lime -verify_arch arm64

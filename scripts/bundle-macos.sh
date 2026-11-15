@@ -20,7 +20,11 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp macos/Info.plist "$app/Contents/Info.plist"
 cp macos/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 cp target/release/lime "$app/Contents/MacOS/lime"
-codesign --force --sign - "$app"
+if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+    ./scripts/sign-macos.sh "$app"
+else
+    codesign --force --sign - "$app"
+fi
 codesign --verify --strict "$app"
 plist="$app/Contents/Info.plist"
 plutil -lint "$plist" >/dev/null

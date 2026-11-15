@@ -1112,7 +1112,9 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
 - `src/macos.rs` applies the same icon to the running Dock entry, including
   development launches from Cargo.
 - `scripts/bundle-macos.sh` copies the executable, Info.plist, and icon into
-  `dist/Lime.app`, ad hoc signs the bundle, checks that signature and the
+  `dist/Lime.app`, ad hoc signs development bundles or uses
+  `APPLE_SIGNING_IDENTITY` for Developer ID signing with hardened runtime and a
+  secure timestamp, checks that signature and the
   project and raster document types, and rejects a Cargo version that differs
   from `CFBundleShortVersionString`. `scripts/package-macos.sh` builds the app
   and creates the drag-to-Applications `dist/Lime-<version>.dmg`. The macOS SDK
@@ -1122,6 +1124,16 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   requires a logged-in Finder session with Automation access, uses a temporary
   writable HFS+ image, and compresses/verifies it before replacing the final DMG.
   Its cleanup detaches only its own mount. The mounted volume uses the app icon.
+  Distribution builds set `LIME_SIGNED_RELEASE=1`, `APPLE_SIGNING_IDENTITY`,
+  and `APPLE_NOTARY_PROFILE`: the app is notarized/stapled before packaging,
+  then the final DMG is separately signed/notarized/stapled and Gatekeeper
+  checked before replacing the prior local artifact. `--existing-app` repackages
+  a verified arm64 candidate with matching Info.plist without rebuilding or
+  re-signing the app. `scripts/sign-macos.sh` and `scripts/notarize-macos.sh`
+  support existing artifacts, optional explicit signing/notary keychains, and
+  retain Apple response/log files beside artifacts. Signing/notarization failure
+  never falls back to ad hoc signing. See `macos/README.md` for commands and
+  `python3 scripts/test-macos-signing.py` for isolated failure-path checks.
 
 ## Build and check
 
@@ -1132,7 +1144,8 @@ From the repository root, use a recent Rust toolchain and Xcode. Run
 
 `.github/workflows/macos.yml` runs formatting, Clippy including test targets, the
 full suite, release rendering/stroke/area-preview benchmarks, the release app
-bundle/signature and arm64 checks, and the bundled executable's headless PDF
+bundle/signature and arm64 checks, isolated signing/notarization failure checks,
+and the bundled executable's headless PDF
 checks on macos-15. All four workflows (macOS, Windows, Linux, and PDF) run only
 through manual `workflow_dispatch` for candidate validation; branch pushes,
 tag pushes, and pull requests do not trigger CI. The app
