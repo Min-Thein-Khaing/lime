@@ -515,11 +515,15 @@ pub(super) fn sidebar_button_bindings() -> [KeyBinding; 2] {
     ]
 }
 
-pub(super) fn activate_sidebar_button(key: &gpui::Keystroke, activate: impl FnOnce()) -> bool {
+pub(super) fn activate_sidebar_button(event: &gpui::KeyDownEvent, activate: impl FnOnce()) -> bool {
+    let key = &event.keystroke;
     if key.modifiers.modified() || !matches!(key.key.as_str(), "enter" | "space") {
         return false;
     }
-    activate();
+    // Consume repeats as well, but only fold once for each physical key press.
+    if !event.is_held {
+        activate();
+    }
     true
 }
 
@@ -1131,7 +1135,10 @@ mod tests {
                 let mut dispatches = 0;
                 let mut folded = false;
                 assert!(activate_sidebar_button(
-                    &Keystroke::parse(key).unwrap(),
+                    &gpui::KeyDownEvent {
+                        keystroke: Keystroke::parse(key).unwrap(),
+                        is_held: false
+                    },
                     || {
                         dispatches += 1;
                         folded = !folded;
@@ -1139,11 +1146,43 @@ mod tests {
                 ));
                 assert_eq!(dispatches, 1);
                 assert!(folded);
+                // Held Return/Space stays consumed while the button retains
+                // focus, without toggling again or reaching canvas Apply.
+                for _ in 0..3 {
+                    assert!(activate_sidebar_button(
+                        &gpui::KeyDownEvent {
+                            keystroke: Keystroke::parse(key).unwrap(),
+                            is_held: true,
+                        },
+                        || {
+                            dispatches += 1;
+                            folded = !folded;
+                        }
+                    ));
+                }
+                assert_eq!(dispatches, 1);
+                assert!(folded);
+                // A fresh physical press can reopen the dock.
+                assert!(activate_sidebar_button(
+                    &gpui::KeyDownEvent {
+                        keystroke: Keystroke::parse(key).unwrap(),
+                        is_held: false,
+                    },
+                    || {
+                        dispatches += 1;
+                        folded = !folded;
+                    }
+                ));
+                assert_eq!(dispatches, 2);
+                assert!(!folded);
             }
             for key in ["e", "cmd-enter", "shift-space"] {
                 let mut dispatches = 0;
                 assert!(!activate_sidebar_button(
-                    &Keystroke::parse(key).unwrap(),
+                    &gpui::KeyDownEvent {
+                        keystroke: Keystroke::parse(key).unwrap(),
+                        is_held: false
+                    },
                     || dispatches += 1
                 ));
                 assert_eq!(dispatches, 0);

@@ -140,7 +140,7 @@ impl Render for Workspace {
             )
             .on_action(|_: &MinimizeWindow, window, _| window.minimize_window())
             .on_action(|_: &ZoomWindow, window, _| window.zoom_window())
-            .when(interactive, |root| {
+            .when(self.can_toggle_inspector(cx), |root| {
                 root.on_action(cx.listener(|this, _: &ToggleRightSidebar, window, cx| {
                     this.toggle_inspector(window, cx);
                 }))
@@ -1711,7 +1711,7 @@ impl Workspace {
                 .child(
                     workspace_header()
                         .justify_center()
-                        .child(self.inspector_toggle()),
+                        .child(self.inspector_toggle(cx)),
                 );
         }
         let tool = self.preferences.tool.info();
@@ -1747,7 +1747,7 @@ impl Workspace {
                                         }
                                     })
                             }, |button| button.opacity(0.4)),
-                        ).child(self.inspector_toggle()),
+                        ).child(self.inspector_toggle(cx)),
                     ),
             )
             .child(
@@ -2541,19 +2541,56 @@ impl Workspace {
             })
     }
 
+    fn can_toggle_inspector(&self, cx: &App) -> bool {
+        self.form.is_none()
+            && !self.dialog_open
+            && self.pdf_job.is_none()
+            && !cx.has_active_drag()
+            && self.stroke.is_none()
+            && !self.move_pointer_dragging()
+            && !self.scale_pointer_dragging()
+            && !self.warp.as_ref().is_some_and(|session| session.dragging())
+            && !self
+                .gradient
+                .as_ref()
+                .is_some_and(|session| session.dragging())
+            && self.crop_drag.is_none()
+            && self.selection_drag.is_none()
+            && self.free_drag_origin.is_none()
+            && self.path_gesture.is_none()
+            && self.guide_drag.is_none()
+            && self.pan_drag.is_none()
+            && self.opacity_drag.is_none()
+            && self.toolbox_drag.is_none()
+            && !self
+                .text_draft
+                .as_ref()
+                .is_some_and(|draft| draft.pointer_dragging())
+    }
+
     fn toggle_inspector(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Revalidate at dispatch too: a rendered menu handler may predate a drag.
+        if !self.can_toggle_inspector(cx) {
+            return;
+        }
+        let keep_button_focus = self.inspector_toggle_focus.is_focused(window);
         // Resolve fields before removing their focus path. Canvas drafts remain
         // active; folding the dock never applies or cancels them.
         self.commit_numeric_edit(window, cx);
         self.close_font_picker(window, cx);
         self.layer_menu = None;
         self.preferences.inspector_folded = !self.preferences.inspector_folded;
-        self.focus.focus(window);
+        if keep_button_focus {
+            self.inspector_toggle_focus.focus(window);
+        } else {
+            self.focus.focus(window);
+        }
         cx.notify();
     }
 
-    fn inspector_toggle(&self) -> gpui::Stateful<Div> {
+    fn inspector_toggle(&self, cx: &Context<Self>) -> gpui::Stateful<Div> {
         let folded = self.preferences.inspector_folded;
+        let enabled = self.can_toggle_inspector(cx);
         icon_button(if folded {
             "sidebar-right-open"
         } else {
@@ -2562,10 +2599,20 @@ impl Workspace {
         .id("toggle-right-sidebar")
         .size(px(24.))
         .tab_index(0)
+        .track_focus(&self.inspector_toggle_focus)
         .key_context("SidebarToggle")
-        .cursor_pointer()
-        .hover(|button| button.bg(rgb(HOVER)).text_color(rgb(TEXT)))
-        .tooltip(tooltip(if folded {
+        .when_else(
+            enabled,
+            |button| {
+                button
+                    .cursor_pointer()
+                    .hover(|button| button.bg(rgb(HOVER)).text_color(rgb(TEXT)))
+            },
+            |button| button.opacity(0.45),
+        )
+        .tooltip(tooltip(if !enabled {
+            "Finish the current gesture or dialog before toggling the sidebar"
+        } else if folded {
             "Expand right sidebar"
         } else {
             "Collapse right sidebar"
@@ -2573,7 +2620,7 @@ impl Workspace {
         .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
         .on_click(|_, window, cx| window.dispatch_action(Box::new(ToggleRightSidebar), cx))
         .on_key_down(|event, window, cx| {
-            if crate::commands::activate_sidebar_button(&event.keystroke, || {
+            if crate::commands::activate_sidebar_button(event, || {
                 window.dispatch_action(Box::new(ToggleRightSidebar), cx);
             }) {
                 cx.stop_propagation();

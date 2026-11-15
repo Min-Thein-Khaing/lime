@@ -14,6 +14,10 @@ rail retains a reopen button. Folding is a persistent personal layout choice;
 it finishes numeric edits normally, preserves canvas/text drafts, and retains
 the selected inspector tab and each panel's session scroll position. Enter/Space
 on the focused toggle use a dedicated key context before canvas Apply bindings.
+The toggle keeps a stable focus handle across folding and consumes held-key
+repeats without activating again. Pointer gestures (including painting, transform,
+text selection, pan, and layer/dock drags) disable sidebar toggling; the action
+handler rechecks this before changing layout. Resting previews remain foldable.
 The minimum window remains 800 × 520; smaller window-manager tiles are best effort.
 Windows has been manually reviewed by the maintainer and approved for release. A Windows-only `muda` adapter builds a native menu bar from the
 shared GPUI menu tree, and `.github/workflows/windows.yml` produces an x64

@@ -254,6 +254,7 @@ pub struct Workspace {
     linux_menu: linux_menu::LinuxMenu,
     focus: FocusHandle,
     numeric_focus: FocusHandle,
+    inspector_toggle_focus: FocusHandle,
     numeric_edit: Option<numeric::NumericEdit>,
     numeric_followup: Option<numeric::PendingNumeric>,
     tab_scroll: ScrollHandle,
@@ -416,6 +417,9 @@ impl Workspace {
         let focus = cx.focus_handle();
         focus.focus(window);
         let numeric_focus = cx.focus_handle();
+        // Tracked handles own their tab-stop policy, rather than inheriting it
+        // from the element's tab_index as generated handles do.
+        let inspector_toggle_focus = cx.focus_handle().tab_stop(true);
         let font_search_focus = cx.focus_handle();
         cx.on_blur(&font_search_focus, window, |workspace, _, cx| {
             workspace.font_list_open = false;
@@ -512,6 +516,7 @@ impl Workspace {
             linux_menu: Default::default(),
             focus,
             numeric_focus,
+            inspector_toggle_focus,
             numeric_edit: None,
             numeric_followup: None,
             tab_scroll: ScrollHandle::new(),

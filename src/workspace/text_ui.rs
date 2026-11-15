@@ -428,6 +428,10 @@ impl TextDraft {
         self.pending_drag_hit = None;
     }
 
+    pub(super) fn pointer_dragging(&self) -> bool {
+        self.dragging
+    }
+
     fn resolve_pending_pointer(&mut self) {
         if !self.carets.matches(&self.spec()) {
             return;
