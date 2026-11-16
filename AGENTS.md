@@ -26,8 +26,7 @@ associations. The macOS DMG is currently Apple silicon only. See README.md
 for downloads and signing status.
 
 Linux x86_64 and ARM64 (`aarch64`) ship as portable downloads. The maintainer
-accepted device verification for 1.2.0, and the 1.2.2 candidate passed CI for
-all four release targets. ARM64 Wayland was visually checked on Arch Linux ARM/Hyprland
+accepted device verification for 1.2.0. ARM64 Wayland was visually checked on Arch Linux ARM/Hyprland
 with Mesa 26.2.6 software Vulkan in a VM; X11/Wayland smoke checks also pass.
 GPUI's Linux target enables both Wayland and X11. `src/workspace/linux_menu.rs`
 renders an in-window menu bar from `commands::application_menus(false)` without
@@ -67,7 +66,9 @@ review handoffs belong in Git history rather than separate living documents.
 Keep unrelated work and existing edits intact.
 README.md is a compact user-facing overview and download page. Keep detailed
 tool instructions, build/CI details, validation status, and release preparation
-notes out of it. The UI provides tool help; `website/` contains the bilingual user
+notes out of it. Public guide articles describe how to use Lime, without version
+labels, release change summaries, developer notes, or work logs. Release history
+belongs in GitHub release notes. The UI provides tool help; `website/` contains the bilingual user
 guide built with Astro and Starlight. English uses `/lime/`, Myanmar `/lime/mm/`
 with HTML language `my`. See `website/README.md` for local review and publication.
 Keep paired Markdown articles, permanent section IDs, and translation revision
@@ -1311,7 +1312,7 @@ rebuilt development app is notarized. Duplicate verification downloads, supersed
 app backups, and project build caches can be removed when cleanup is requested.
 
 
-## Capability pass 26 contracts
+## Editing and storage contracts
 
 - `src/document/composite.rs` preserves the original high-precision Normal path
   and adds alpha-aware Multiply/Screen/Overlay. Blend colors contribute where
@@ -1408,3 +1409,21 @@ app backups, and project build caches can be removed when cleanup is requested.
   exercises these fixtures in all release workflows and optional macOS/Windows
   PDF diagnostics. Native display QA remains with the maintainer; candidate CI
   does not launch the interactive app.
+
+## Scope boundaries
+
+Text styling applies to the whole layer. Mixed styles need explicit UTF-8 span
+editing, style-at-caret, clipboard, undo, and versioned project semantics before
+adding span attributes. Layer masks have no direct brush target, and retained
+effects are not a general effect stack.
+
+PDF imports do not persist provenance or provide reimport. Any future reimport
+metadata should identify the source filename, page, DPI, background, and content
+fingerprint, with explicit relinking and replacement preview. Do not silently
+embed absolute local paths in portable projects.
+
+Working pixels remain 8-bit sRGB. Higher precision needs shared sample types,
+appropriate memory admission, lossless project payloads, display conversion,
+and a defined gamma/linear blending policy before exposing a precision selector.
+Importing a 16-bit file does not imply 16-bit editing. Windows per-monitor display
+verification remains outstanding, as described above.

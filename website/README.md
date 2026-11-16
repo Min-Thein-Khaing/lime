@@ -39,6 +39,11 @@ familiar software/editing terms in English. This applies to navigation, headings
 search labels, captions, and prose, not only literal menu paths. Keep ordinary
 sentences natural instead of mechanically replacing every Burmese word.
 
+Keep the published guide focused on using Lime: tasks, controls, outcomes, and
+troubleshooting. Describe current behavior directly, without version labels,
+release change summaries, developer notes, or work logs. Release history belongs
+in GitHub release notes; build and publishing instructions belong in this README.
+
 | Term or context | Myanmar editorial convention |
 | --- | --- |
 | Tools, Tool Options, Toolbox, Layers, Paths, Workspace, Canvas, Menu, Tab | Keep these familiar names in English; preserve exact UI labels |

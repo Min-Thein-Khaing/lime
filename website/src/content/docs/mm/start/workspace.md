@@ -2,8 +2,8 @@
 title: "Workspace အစိတ်အပိုင်းများ"
 description: "Toolbox၊ Canvas၊ Tool Options၊ Layers နှင့် Paths ကို ရှာပြီး အသုံးပြုရန်။"
 translationKey: "start/workspace"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Workspace ကို ကြည့်ရန် {#layout}
@@ -29,7 +29,7 @@ Panel ခေါက်ထားမှုကို Lime က မှတ်ထား�
 
 ## Menu သုံးရန် {#menus}
 
-macOS တွင် System menu bar၊ Windows တွင် Native window menu ကို သုံးသည်။ Linux တွင် Window အတွင်း Menu bar ရှိပြီး **F10** ဖြင့် Focus လုပ်နိုင်သည်။ ထို Linux Menu တွင် Arrow keys ဖြင့် ရွှေ့ပါ၊ **Enter** ဖြင့် ရွေးပြီး **Escape** ဖြင့် ပိတ်ပါ။ မျဉ်းသားထားသော စာလုံးများက Menu shortcut ကို ပြသည်။
+macOS တွင် System menu bar၊ Windows တွင် Native window menu ကို သုံးသည်။ Linux တွင် Window အတွင်း Menu bar ရှိပြီး **F10** ဖြင့် Focus လုပ်နိုင်သည်။ **Alt** နှင့် မျဉ်းသားထားသော စာလုံးကို နှိပ်လျှင် ထို Menu ဖွင့်သည်။ Arrow keys ဖြင့် ရွှေ့ပြီး **Enter** ဖြင့် ရွေးပါ။ Submenu က မူရင်း Menu ၏ ဘေးတွင် ပွင့်သည်။ **Right** သို့မဟုတ် **Enter** က Submenu ဖွင့်ပြီး **Left** သို့မဟုတ် **Escape** က တစ်ဆင့်ပြန်ပိတ်သည်။ အပေါ်ဆုံးအဆင့်တွင် **Escape** က Menu အားလုံးပိတ်သည်။
 
 ## ဆက်ဖတ်ရန် {#related}
 

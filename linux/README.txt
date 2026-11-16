@@ -28,9 +28,10 @@ Ubuntu 22.04 runtime packages:
   libxcb-xfixes0 libxcb-shape0 xdg-desktop-portal
 Also install the appropriate GPU driver and portal backend.
 
-Menus: click File/Edit/etc. or press F10; Alt plus a menu's first letter opens
-that menu. Arrows navigate, Enter activates, Escape closes. Submenus show a
-Back row; Left returns to the parent. File > Exit and Ctrl+Q quit.
+Menus: click File/Edit/etc. or press F10; Alt plus an underlined letter opens
+that menu. Arrows navigate and Enter activates. Submenus open beside the parent
+menu; Right or Enter opens one, and Left or Escape closes one level. Escape at
+the top level dismisses the menu. File > Exit and Ctrl+Q quit.
 
 Pass image, PDF, or .lime filenames as arguments: ./lime example.png
 Wayland is preferred when WAYLAND_DISPLAY is set; otherwise X11 is used.

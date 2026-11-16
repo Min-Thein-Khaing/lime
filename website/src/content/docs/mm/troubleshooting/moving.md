@@ -2,8 +2,8 @@
 title: "Layer Move သို့မဟုတ် Transform လုပ်မရခြင်း"
 description: "Lock၊ Movement Link၊ မျက်နှာပြင်အပြင်ရောက်နေသော Handle နှင့် မပြီးသေးသော Preview စစ်နည်း။"
 translationKey: troubleshooting/moving
-sourceRevision: "1.2.3-guide-1"
-translatedRevision: "1.2.3-guide-1"
+sourceRevision: "1.2.3-guide-2"
+translatedRevision: "1.2.3-guide-2"
 ---
 
 ## Layer နှင့် Lock စစ်ရန် {#locks}
@@ -13,7 +13,7 @@ translatedRevision: "1.2.3-guide-1"
 3. Movement Link ရှိလျှင် Chain ဖွင့်ထားသော Layer အားလုံးနှင့် နောက်လိုက်တွဲထားသော Attached Layer များကို စစ်ပါ။ ပါဝင်သော Layer တစ်ခု Lock ဖြစ်လျှင် အစုလိုက်ရွှေ့မရပါ။ Hidden Layer ဖြစ်လည်း ပါသည်။ Pointer သို့မဟုတ် Arrow ဖြင့် ရွှေ့ခြင်းကို Lock က တားလျှင် Lime က ထို Layer အမည်ကို ပြသည်။
 4. Editable Text ကို Scale Layer နှင့် အခြား Pixel Transform လုပ်ရန် `.lime` Copy ထားပြီး **Layer → Rasterize Text Layer** လုပ်ပါ။ Text ကို Move လုပ်ရုံအတွက် Rasterize မလိုပါ။
 
-Move က Crosshair မပါသော လေးဖက်မြား Cursor ကို သုံးပြီး Active Layer ကို အမြဲရွှေ့သည်။ Pointer က အခြား Layer သို့မဟုတ် Canvas အလွတ်ပေါ် ရှိနေလည်း Active Layer ကိုသာ ရွှေ့သည်။ မဆွဲမီ Layers တွင် ရည်ရွယ်သော Row ကို ရွေးပါ။ Guide ဆွဲရာတွင် သီးခြား Cursor ကို ဆက်သုံးသည်။
+လေးဖက်မြားပုံ Move Cursor က Active Layer ကို ရွှေ့သည်။ Pointer က အခြား Layer သို့မဟုတ် Canvas အလွတ်ပေါ် ရှိနေလည်း Active Layer ကိုသာ ရွှေ့သည်။ မဆွဲမီ Layers တွင် ရည်ရွယ်သော Row ကို ရွေးပါ။ Guide ကို ရွှေ့လိုလျှင် Guide ကိုယ်တိုင်ကို ဆွဲပါ။
 
 ## လက်ရှိ Edit အဆုံးသတ်ရန် {#preview}
 

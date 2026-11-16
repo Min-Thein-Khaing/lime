@@ -2,8 +2,8 @@
 title: "Find your way around Lime"
 description: "Find the toolbox, canvas, Tool Options, Layers, Paths, and workspace controls."
 translationKey: "start/workspace"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Read the workspace {#layout}
@@ -29,7 +29,7 @@ Lime remembers personal folding choices. Tabs keep their own zoom and pan. A fol
 
 ## Use the menus {#menus}
 
-On macOS, the menus are in the system menu bar. On Windows, they use the native window menu. Linux has an in-window menu bar: **F10** activates it, arrows navigate, **Enter** chooses, and **Escape** dismisses it. Underlined letters identify menu shortcuts.
+On macOS, the menus are in the system menu bar. On Windows, they use the native window menu. Linux has an in-window menu bar: **F10** activates it, **Alt** plus an underlined letter opens a menu, arrows navigate, and **Enter** chooses. Submenus open beside the parent menu. **Right** or **Enter** opens a submenu; **Left** or **Escape** closes one level. **Escape** at the top level dismisses the menu.
 
 ## Next steps {#related}
 
