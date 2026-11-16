@@ -1,13 +1,13 @@
 //! Selective menu imagery shares the toolbox's SVG glyphs on both platforms.
 
-#[cfg(any(target_os = "macos", target_os = "windows", test))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use anyhow::{Context as _, Result};
 use gpui::Action;
-#[cfg(any(target_os = "macos", target_os = "windows", test))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use gpui::AssetSource;
 
 use crate::commands::*;
-#[cfg(any(target_os = "macos", target_os = "windows", test))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 use crate::icons::Icons;
 
 pub(crate) fn for_action(action: &dyn Action) -> Option<&'static str> {
@@ -70,7 +70,7 @@ pub(crate) fn for_action(action: &dyn Action) -> Option<&'static str> {
 }
 
 /// Straight-alpha RGBA for native icons; geometry stays in the shared SVG source.
-#[cfg(any(target_os = "macos", target_os = "windows", test))]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn rasterize(icon: &str, pixels: u32, color: u32) -> Result<Vec<u8>> {
     anyhow::ensure!((1..=256).contains(&pixels), "invalid menu icon size");
     let svg = Icons.load(icon)?.context("unknown menu icon")?;
