@@ -2,6 +2,7 @@ mod adjust_ui;
 mod canvas_tools;
 mod clipboard;
 mod color;
+mod compact_inspector;
 mod composite_preview;
 mod cursor;
 mod dialogs;
@@ -261,6 +262,7 @@ pub struct Workspace {
     inspector_scroll: ScrollHandle,
     layers_scroll: ScrollHandle,
     paths_scroll: ScrollHandle,
+    compact_inspector_scroll: [ScrollHandle; 3],
     tabs: Vec<Tab>,
     recovery: recovery_ui::Recovery,
     active: Option<usize>,
@@ -523,6 +525,7 @@ impl Workspace {
             inspector_scroll: ScrollHandle::new(),
             layers_scroll: ScrollHandle::new(),
             paths_scroll: ScrollHandle::new(),
+            compact_inspector_scroll: std::array::from_fn(|_| ScrollHandle::new()),
             tabs: Vec::new(),
             recovery: Default::default(),
             active: None,

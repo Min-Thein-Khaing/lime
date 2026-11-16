@@ -6,8 +6,8 @@ use super::numeric::NumericField;
 use super::stroke_ui::{PathStrokeStyle, StrokeSource};
 use super::tooltip::{help_icon, tooltip};
 use super::view::{
-    DISABLED, HOVER, MUTED, SELECTED, TEXT, choice_button, icon, option_action, option_row,
-    section_label, segmented, step_button,
+    ACCENT, BORDER, DISABLED, HOVER, MUTED, SELECTED, TEXT, choice_button, icon, option_action,
+    option_row, section_label, segmented, step_button,
 };
 use crate::commands::{PathToSelection, SelectionToPath};
 use crate::paths::{self, Anchor, AnchorId, HandleMode, PathId, VectorPath};
@@ -289,6 +289,78 @@ impl Workspace {
 
     pub(super) fn path_panel(&self, cx: &Context<Self>) -> Div {
         self.path_options(div().flex().flex_col().gap_3().p_4(), cx)
+    }
+
+    pub(super) fn compact_paths(&self, cx: &Context<Self>) -> Div {
+        let panel = div().flex().flex_col().gap_1().p(px(5.));
+        let Some(tab) = self
+            .active_tab()
+            .filter(|tab| !tab.document.content.paths().is_empty())
+        else {
+            return panel.child(
+                div()
+                    .text_size(px(10.))
+                    .text_color(rgb(MUTED))
+                    .text_center()
+                    .child("—"),
+            );
+        };
+        let tab_id = tab.id;
+        let active = tab.document.content.active_path_id();
+        panel.children(
+            tab.document
+                .content
+                .paths()
+                .iter()
+                .enumerate()
+                .map(|(index, path)| {
+                    let id = path.id;
+                    let visible = path.visible;
+                    div()
+                        .id(("compact-path", id.0))
+                        .w_full()
+                        .h(px(28.))
+                        .flex_shrink_0()
+                        .flex()
+                        .items_center()
+                        .rounded_sm()
+                        .border_1()
+                        .border_color(rgb(if active == Some(id) { ACCENT } else { BORDER }))
+                        .when(active == Some(id), |row| row.bg(rgb(SELECTED)))
+                        .hover(|row| row.bg(rgb(HOVER)))
+                        .cursor_pointer()
+                        .tooltip(tooltip(format!(
+                            "Path {} · {} anchors",
+                            index + 1,
+                            path.anchors.len()
+                        )))
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            if this.active_tab().is_some_and(|tab| tab.id == tab_id) {
+                                this.select_path(id, cx);
+                            }
+                        }))
+                        .child(div().flex_1().h_full())
+                        .child(
+                            div()
+                                .id(("compact-path-eye", id.0))
+                                .size(px(22.))
+                                .flex_shrink_0()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .text_color(rgb(if visible { MUTED } else { DISABLED }))
+                                .hover(|eye| eye.bg(rgb(HOVER)).text_color(rgb(TEXT)))
+                                .tooltip(tooltip(if visible { "Hide path" } else { "Show path" }))
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    cx.stop_propagation();
+                                    if this.active_tab().is_some_and(|tab| tab.id == tab_id) {
+                                        this.set_path_visible(id, !visible, window, cx);
+                                    }
+                                }))
+                                .child(icon(if visible { "eye" } else { "eye-off" }, 14.)),
+                        )
+                }),
+        )
     }
 
     pub(super) fn path_options(&self, panel: Div, cx: &Context<Self>) -> Div {

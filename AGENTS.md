@@ -9,8 +9,31 @@ takes cues from GIMP, with native menus, a docked, resizable, and foldable
 toolbox, a Layers panel, and a tabbed canvas. File commands belong in the menu.
 The workspace favors canvas space and has no top toolbar.
 The right sidebar (Tool Options and Layers/Paths together) can be collapsed at
-any window size through its header or View → Toggle Right Sidebar. A 36-point
-rail retains a reopen button. Folding is a persistent personal layout choice;
+any window size through its header or View → Toggle Right Sidebar. The folded
+inspector shares the toolbox's 56-point folded width. Three permanent groups show
+essential editable tool controls at the top, layer thumbnails in the largest
+middle group, and unnumbered path blocks with visibility eyes below. Layers and
+Paths use short text-only headers. Click a path block's empty area to select it;
+its eye toggles visibility independently. Each group
+scrolls independently without visible scrollbars, with subtle overflow fades;
+headers remain fixed. Compact options omit Apply/Cancel; existing Return/Escape
+bindings apply/cancel previews after finishing any inline numeric edit. Move
+uses shared edge/center alignment actions in a two-column icon grid. Rotate shows
+Angle; Flip uses one H/V toggle; Perspective keeps X/Y for the corner selected on
+canvas. Antialias, pivot, corner selection, and Bucket Fill mode stay in the full
+inspector. Brush Smoothing remains compact. Gradient uses one F→B/F→A toggle
+(foreground/background or foreground/transparent), Shape and Reverse; an active
+custom palette stays selected until the user clicks the mode toggle.
+Text prioritizes Size and a color-picker swatch. Tool title text has a
+fixed available width and ellipsis trimming. Empty Paths leaves
+more height for Layers. Thumbnail clicks select, double-clicks rename, right-clicks
+open the existing row menu, and drags reorder; active/hidden thumbnails retain an
+eye, with other eyes shown on hover. Tool headings expand the full inspector.
+A small + row immediately after the last compact layer thumbnail scrolls with
+the list, appears only with an open image, and opens the shared New Layer dialog
+using the existing command's availability and edit-commit rules.
+Compact and expanded views keep separate session scroll handles so switching
+layouts does not clamp the other view's position. Folding is a persistent personal layout choice;
 it finishes numeric edits normally, preserves canvas/text drafts, and retains
 the selected inspector tab and each panel's session scroll position. Enter/Space
 on the focused toggle use a dedicated key context before canvas Apply bindings.

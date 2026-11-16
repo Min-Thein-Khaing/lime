@@ -821,6 +821,153 @@ impl Workspace {
         self.tabs[index].pending_opacity = Some((id, opacity));
     }
 
+    pub(super) fn compact_layers(&self, cx: &Context<Self>) -> Div {
+        let panel = div().flex().flex_col().gap_1().p(px(5.));
+        let Some(tab) = self.active_tab() else {
+            return panel.child(
+                div()
+                    .text_size(px(10.))
+                    .text_color(rgb(MUTED))
+                    .text_center()
+                    .child("—"),
+            );
+        };
+        let tab_id = tab.id;
+        panel
+            .children(tab.document.content.layers().iter().enumerate().rev().map(
+                |(index, layer)| {
+                    let id = layer.id;
+                    let active = id == tab.active_layer;
+                    let visible = layer.visible;
+                    let name: SharedString = layer.name.clone().into();
+                    let (width, height) = thumbnail_size(layer.pixels.dimensions());
+                    let mut detail = if visible {
+                        "Visible".to_owned()
+                    } else {
+                        "Hidden".to_owned()
+                    };
+                    if layer.locks.position {
+                        detail.push_str(" · Position locked");
+                    }
+                    if layer.locks.alpha {
+                        detail.push_str(" · Alpha locked");
+                    }
+                    if !tab.document.content.linked_layers(id).is_empty() {
+                        detail.push_str(" · Movement linked");
+                    }
+                    if let Some(source) = tab
+                        .document
+                        .content
+                        .shadow_source(id)
+                        .and_then(|id| tab.document.content.layer(id))
+                    {
+                        detail.push_str(&format!(" · Follows {}", source.name));
+                    }
+                    div()
+                        .id(("compact-layer", id.0 as usize))
+                        .group("compact-layer")
+                        .relative()
+                        .w_full()
+                        .h(px(44.))
+                        .flex_shrink_0()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .rounded_sm()
+                        .border_1()
+                        .border_color(rgb(if active { ACCENT } else { BORDER }))
+                        .bg(rgb(if active { SELECTED } else { CHROME }))
+                        .hover(|row| row.bg(rgb(HOVER)))
+                        .cursor_pointer()
+                        .tooltip(tooltip(format!("{name}\n{detail}")))
+                        .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                            if this.active_tab().is_some_and(|tab| tab.id == tab_id) {
+                                this.select_layer(id, window, cx);
+                                if event.click_count() == 2 {
+                                    this.run_layer_command(LayerCommand::Rename, window, cx);
+                                }
+                            }
+                        }))
+                        .on_mouse_down(
+                            MouseButton::Right,
+                            cx.listener(move |this, event: &MouseDownEvent, window, cx| {
+                                cx.stop_propagation();
+                                this.open_layer_context_menu(
+                                    tab_id,
+                                    id,
+                                    event.position,
+                                    window,
+                                    cx,
+                                );
+                            }),
+                        )
+                        .on_drag(
+                            DraggedLayer {
+                                id,
+                                name: name.clone(),
+                            },
+                            |dragged, _, _, cx| cx.new(|_| dragged.clone()),
+                        )
+                        .drag_over::<DraggedLayer>(|row, _, _, _| row.border_color(rgb(ACCENT)))
+                        .on_drop(
+                            cx.listener(move |this, dragged: &DraggedLayer, window, cx| {
+                                if this.active_tab().is_some_and(|tab| tab.id == tab_id) {
+                                    this.move_layer(dragged.id, index, window, cx);
+                                }
+                            }),
+                        )
+                        .child(
+                            div()
+                                .relative()
+                                .w(px(width))
+                                .h(px(height))
+                                .overflow_hidden()
+                                .when(!visible, |thumb| thumb.opacity(0.35))
+                                .child(thumbnail_checker())
+                                .when_some(
+                                    tab.document.canvas.thumbnail(id).cloned(),
+                                    |thumb, image| {
+                                        thumb.child(
+                                            img(image)
+                                                .absolute()
+                                                .size_full()
+                                                .object_fit(ObjectFit::Fill),
+                                        )
+                                    },
+                                ),
+                        )
+                        .child(
+                            div()
+                                .id(("compact-layer-eye", id.0 as usize))
+                                .absolute()
+                                .right_0()
+                                .bottom_0()
+                                .size(px(22.))
+                                .rounded_sm()
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .bg(rgb(CHROME))
+                                .text_color(rgb(MUTED))
+                                .when(!active && visible, |eye| {
+                                    eye.invisible()
+                                        .group_hover("compact-layer", |eye| eye.visible())
+                                })
+                                .hover(|eye| eye.bg(rgb(HOVER)).text_color(rgb(TEXT)))
+                                .tooltip(tooltip(if visible { "Hide layer" } else { "Show layer" }))
+                                .on_click(cx.listener(move |this, _, window, cx| {
+                                    cx.stop_propagation();
+                                    if this.active_tab().is_some_and(|tab| tab.id == tab_id) {
+                                        this.toggle_visibility(id, window, cx);
+                                    }
+                                }))
+                                .child(icon(if visible { "eye" } else { "eye-off" }, 13.)),
+                        )
+                },
+            ))
+            .child(self.compact_new_layer_button())
+    }
+
     pub(super) fn layers_panel(&self, cx: &Context<Self>) -> Div {
         let header = div()
             .flex()

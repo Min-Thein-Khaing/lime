@@ -41,12 +41,11 @@ pub(super) use crate::theme::{
 };
 const HEADER_HEIGHT: f32 = 36.;
 const INSPECTOR_WIDTH: f32 = 272.;
-const INSPECTOR_FOLDED_WIDTH: f32 = 36.;
 const TOOLBOX_RESIZE_HANDLE_WIDTH: f32 = 6.;
 pub(super) const TOOLBOX_DEFAULT_WIDTH: f32 = INSPECTOR_WIDTH;
 const TOOLBOX_MIN_WIDTH: f32 = 140.;
 const TOOLBOX_MAX_WIDTH: f32 = 400.;
-const TOOLBOX_FOLDED_WIDTH: f32 = 56.;
+pub(super) const TOOLBOX_FOLDED_WIDTH: f32 = 56.;
 const TOOLBOX_FOLDED_PADDING: f32 = 8.;
 const TOOLBOX_PADDING: f32 = 12.;
 const TOOLBOX_GAP: f32 = 4.;
@@ -1704,16 +1703,7 @@ impl Workspace {
 
     fn inspector(&self, cx: &Context<Self>) -> Div {
         if self.preferences.inspector_folded {
-            return div()
-                .w(px(INSPECTOR_FOLDED_WIDTH))
-                .flex_shrink_0()
-                .border_l_1()
-                .border_color(rgb(BORDER))
-                .child(
-                    workspace_header()
-                        .justify_center()
-                        .child(self.inspector_toggle(cx)),
-                );
+            return self.compact_inspector(cx);
         }
         let tool = self.preferences.tool.info();
         div()
@@ -2593,7 +2583,7 @@ impl Workspace {
         cx.notify();
     }
 
-    fn inspector_toggle(&self, cx: &Context<Self>) -> gpui::Stateful<Div> {
+    pub(super) fn inspector_toggle(&self, cx: &Context<Self>) -> gpui::Stateful<Div> {
         let folded = self.preferences.inspector_folded;
         let enabled = self.can_toggle_inspector(cx);
         icon_button(if folded {
@@ -3937,7 +3927,7 @@ fn align_controls(enabled: bool, cx: &Context<super::Workspace>) -> Div {
     ])
 }
 
-fn align_button(
+pub(super) fn align_button(
     symbol: &'static str,
     label: &'static str,
     action: AlignLayer,

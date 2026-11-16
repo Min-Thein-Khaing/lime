@@ -684,14 +684,17 @@ impl Workspace {
         }
     }
 
+    pub(super) fn selected_perspective_corner(&self) -> usize {
+        self.warp
+            .as_ref()
+            .map_or(0, |session| session.selected_corner)
+    }
+
     pub(super) fn perspective_corner_options(&self, cx: &Context<Self>) -> Div {
         use super::numeric::NumericField;
         use super::tooltip::tooltip;
         use super::view::{TransformPointControl, choice_button, transform_point_grid};
-        let index = self
-            .warp
-            .as_ref()
-            .map_or(0, |session| session.selected_corner);
+        let index = self.selected_perspective_corner();
         let body = div()
             .flex()
             .flex_col()

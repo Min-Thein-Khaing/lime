@@ -52,8 +52,9 @@ Windows downloads are unsigned. The macOS app is Developer ID signed and notariz
 Open an image or PDF, or create a new image. Choose a tool and adjust its options
 beside the canvas. Hover the **?** for gestures and shortcuts.
 Collapse the right sidebar with its header button, **Cmd/Ctrl+Shift+L**, or
-**View → Toggle Right Sidebar** to give the canvas more room; use the button on
-the narrow right rail to reopen it.
+**View → Toggle Right Sidebar** to give the canvas more room. The compact sidebar
+keeps essential tool controls, layer thumbnails with a **+** after the last layer, and path blocks available;
+each section scrolls independently without scrollbars. Use its top button to expand it.
 Finish an active drag before toggling the sidebar.
 Fold secondary option sections with the mouse or keyboard to leave more room for Layers and Paths;
 their headers summarize active settings. Oval Select uses **1:1** for circles.
@@ -61,6 +62,7 @@ Aspect-ratio choices also reshape the current selection or crop box.
 Typed numeric edits finish before Save and layer menu commands.
 Delete/Backspace clears the selected area of the active raster layer to transparency.
 Move uses a four-arrow cursor and always moves the active layer.
+Its compact options align the layer to canvas edges or center.
 New text appears above all layers, regardless of the selected layer.
 Layer → Transform and the toolbox use the same Scale Layer, Rotate, Flip, and
 Perspective tools. Reselecting an active transform keeps its preview.

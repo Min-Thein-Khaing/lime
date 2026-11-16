@@ -2,8 +2,8 @@
 title: "Find your way around Lime"
 description: "Find the toolbox, canvas, Tool Options, Layers, Paths, and workspace controls."
 translationKey: "start/workspace"
-sourceRevision: "1.2.3-guide-1"
-translatedRevision: "1.2.3-guide-1"
+sourceRevision: "1.2.3-guide-6"
+translatedRevision: "1.2.3-guide-6"
 ---
 
 ## Read the workspace {#layout}
@@ -22,10 +22,14 @@ The screenshot shows Lime's desktop workspace. Panel sizes and the selected tool
 
 1. Resize the docked panels to suit your work, or fold the toolbox.
 2. Choose **View → Toggle Right Sidebar**, use its header button, or press **Cmd/Ctrl+Shift+L** to fold Tool Options and Layers/Paths together.
-3. Use the button on the narrow right rail to reopen them. Finish an active drag before folding; a resting transform preview can remain open.
+3. Use the top button on the compact sidebar to expand it. Finish an active drag before folding; a resting transform preview can remain open.
 4. Hold **Space** and drag to pan. Choose **Zoom** to zoom around a point without changing image pixels.
 
 Lime remembers personal folding choices. Tabs keep their own zoom and pan. A folded sidebar retains the selected Layers/Paths tab and drafts.
+
+The compact sidebar matches the folded toolbox width. It keeps essential tool controls at the top, layer thumbnails in the larger middle section, and path blocks below. Each section scrolls independently without a visible scrollbar; subtle edge fades indicate more content. Use **Return** to apply or **Escape** to cancel Crop, Gradient, and transform previews; when editing a numeric field, these keys finish or restore that field first. Click the current tool heading to expand all options. Move's alignment buttons place the layer at a canvas edge or center. Flip uses an **H/V** toggle. Gradient's single color-mode button toggles between **F→B** (foreground to background) and **F→A** (foreground to transparent). Text offers size and a clickable color swatch.
+
+Use **+** immediately after the last layer thumbnail to open the New Layer dialog. It scrolls with the list and appears only when an image is open. Click a layer thumbnail to select it, double-click to rename, right-click for its context menu, or drag to reorder it. Hover for its name and status. An eye appears on the active or hidden layer and when hovering over other thumbnails. Click the empty area of a path block to select it; its eye shows or hides the path without changing the selected path. Hover for the path number and anchor count. Compact and expanded panels remember their own scroll positions.
 
 ## Use the menus {#menus}
 
