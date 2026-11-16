@@ -1476,6 +1476,17 @@ mod tests {
     }
 
     #[test]
+    fn high_resolution_text_size_survives_project_save_and_reopen() {
+        let rendered = crate::text::render("A", "sans-serif", 300.0, Rgba([0, 0, 0, 255])).unwrap();
+        let mut content = DocumentContent::single_layer("Text".into(), RgbaImage::new(800, 600));
+        let id = content.top_layer_id();
+        content.set_text(id, (25, 30), rendered);
+        let reopened = read_bytes(&write_bytes(&content).unwrap()).unwrap();
+        assert_eq!(reopened.layers()[0].text.as_ref().unwrap().size, 300.0);
+        assert_same(&reopened, &content);
+    }
+
+    #[test]
     fn text_faces_round_trip_and_existing_v6_text_defaults_to_regular() {
         let rendered = crate::text::render("Aa", "sans-serif", 32.0, Rgba([0, 0, 0, 255])).unwrap();
         let mut content = DocumentContent::single_layer("Text".into(), RgbaImage::new(4, 4));

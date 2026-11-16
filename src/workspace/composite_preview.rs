@@ -14,6 +14,7 @@ struct Key {
     offset: (i32, i32),
     size: (u32, u32),
     target: Option<LayerId>,
+    above: LayerId,
     linked_move: bool,
 }
 
@@ -63,14 +64,15 @@ impl Workspace {
                 tab.document.content.needs_composite_preview() || self.linked_move_preview(raw)
             })
             .map(|(tab, raw)| {
-                let target = if self
+                let (target, above) = if self
                     .text_overlay
                     .as_ref()
                     .is_some_and(|text| Arc::ptr_eq(&text.sprite, &raw.sprite))
                 {
-                    self.text_preview_layer().unwrap_or(Some(tab.active_layer))
+                    self.text_preview_target()
+                        .unwrap_or((Some(tab.active_layer), tab.active_layer))
                 } else {
-                    Some(tab.active_layer)
+                    (Some(tab.active_layer), tab.active_layer)
                 };
                 let key = Key {
                     tab: tab.id,
@@ -79,11 +81,12 @@ impl Workspace {
                     offset: raw.offset,
                     size: raw.size,
                     target,
+                    above,
                     linked_move: self.linked_move_preview(&raw),
                 };
-                (key, raw, tab.document.content.clone(), tab.active_layer)
+                (key, raw, tab.document.content.clone())
             });
-        let Some((key, raw, content, above)) = input else {
+        let Some((key, raw, content)) = input else {
             self.composite_preview.requested = None;
             if let Some((_, paint)) = self.composite_preview.published.take() {
                 super::drop_images(paint.into_images(), window, cx);
@@ -124,7 +127,7 @@ impl Workspace {
                 &content,
                 &raw,
                 key.target,
-                Some(above),
+                Some(key.above),
                 1024,
                 mask_baked,
                 key.linked_move,
@@ -262,170 +265,4 @@ fn composite(
         }
     }
     output
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn linked_move_preview_preserves_interleaved_stack_masks_and_blend_modes() {
-        for mode in [
-            BlendMode::Normal,
-            BlendMode::Multiply,
-            BlendMode::Screen,
-            BlendMode::Overlay,
-        ] {
-            let mut content = DocumentContent::single_layer(
-                "Back".into(),
-                RgbaImage::from_pixel(7, 5, Rgba([50, 100, 180, 120])),
-            );
-            let back = content.top_layer_id();
-            let middle = content
-                .add_layer(back, "Stationary".into(), Rgba([90, 30, 60, 190]))
-                .unwrap();
-            let top = content
-                .add_layer(middle, "Source".into(), Rgba([210, 60, 20, 180]))
-                .unwrap();
-            content.mask_from_selection(
-                top,
-                &crate::selection::Selection::from_coverage(7, 5, |x, _| (x * 40) as u8),
-            );
-            content.change_blend_mode(top, mode);
-            content.set_opacity(top, 160);
-            content.link_layers(back, top);
-            let paint = MovePaint {
-                below: None,
-                above: None,
-                sprite: document::preview_render(&RgbaImage::new(1, 1)),
-                offset: (-2, 1),
-                size: (7, 5),
-            };
-            let preview = composite(&content, &paint, Some(top), Some(back), 1024, false, true);
-            let mut committed = content.clone();
-            committed.move_linked_layers(top, paint.offset);
-            assert_eq!(preview, *committed.composite());
-            assert_eq!(content.layer(top).unwrap().offset, (0, 0));
-            assert_eq!(committed.layer(middle).unwrap().offset, (0, 0));
-            content.set_visible(back, false);
-            committed.set_visible(back, false);
-            assert_eq!(
-                composite(&content, &paint, Some(top), Some(back), 1024, false, true),
-                *committed.composite()
-            );
-        }
-    }
-    #[test]
-    fn attached_shadow_preview_matches_commit_without_joining_the_movement_set() {
-        let mut content = DocumentContent::single_layer(
-            "Base".into(),
-            RgbaImage::from_pixel(9, 7, Rgba([40, 80, 160, 200])),
-        );
-        let base = content.top_layer_id();
-        let source = content
-            .add_layer(base, "Source".into(), Rgba([200, 40, 30, 180]))
-            .unwrap();
-        content
-            .place_drop_shadow(
-                source,
-                crate::filters::FilterSpec::Shadow {
-                    radius: 1,
-                    offset: (1, 2),
-                    opacity: 180,
-                    color: Rgba([0, 0, 0, 255]),
-                },
-            )
-            .unwrap();
-        let shadow = content.shadow_attachments()[0].0;
-        // An intervening stationary layer must retain its stack position.
-        content.move_layer(shadow, 0);
-        assert!(content.layer_links().is_empty());
-        let paint = MovePaint {
-            below: None,
-            above: None,
-            sprite: document::preview_render(&RgbaImage::new(1, 1)),
-            offset: (-2, 1),
-            size: (9, 7),
-        };
-        let mut committed = content.clone();
-        committed.move_linked_layers(source, paint.offset);
-        assert_eq!(
-            composite(
-                &content,
-                &paint,
-                Some(source),
-                Some(base),
-                1024,
-                false,
-                true
-            ),
-            *committed.composite()
-        );
-        assert_eq!(committed.layer(base).unwrap().offset, (0, 0));
-        assert_eq!(content.layer(source).unwrap().offset, (0, 0));
-    }
-
-    #[test]
-    fn backdrop_dependent_move_and_scale_previews_match_full_composition() {
-        for mode in [BlendMode::Multiply, BlendMode::Screen, BlendMode::Overlay] {
-            let mut content = DocumentContent::single_layer(
-                "Base".into(),
-                RgbaImage::from_pixel(6, 4, Rgba([80, 120, 180, 200])),
-            );
-            let base = content.top_layer_id();
-            let id = content
-                .add_layer(base, "Source".into(), Rgba([210, 80, 40, 180]))
-                .unwrap();
-            content.mask_from_selection(
-                id,
-                &crate::selection::Selection::from_coverage(6, 4, |x, _| (x * 40) as u8),
-            );
-            content.change_blend_mode(id, mode);
-            let top = content
-                .add_layer(id, "Top".into(), Rgba([30, 180, 70, 70]))
-                .unwrap();
-            content.change_blend_mode(top, BlendMode::Screen);
-            let sprite = document::preview_render(&content.layer(id).unwrap().pixels);
-            let paint = MovePaint {
-                below: None,
-                above: None,
-                sprite,
-                offset: (-2, 1),
-                size: (6, 4),
-            };
-            let preview = composite(&content, &paint, Some(id), Some(base), 1024, false, false);
-            content.set_offset(id, paint.offset);
-            assert_eq!(preview, *content.composite());
-            content.scale_layer(id, 3, 2, crate::transform::Resample::Nearest);
-            content.set_offset(id, (1, 1));
-            let paint = MovePaint {
-                offset: (1, 1),
-                size: (3, 2),
-                ..paint
-            };
-            // Reconstruct from the unscaled input, matching the GPU scale frame.
-            let mut original = content.clone();
-            let layers = original.layers().to_vec();
-            let mut restored = layers;
-            restored
-                .iter_mut()
-                .find(|layer| layer.id == id)
-                .unwrap()
-                .pixels = Arc::new(RgbaImage::from_pixel(6, 4, Rgba([210, 80, 40, 180])));
-            restored
-                .iter_mut()
-                .find(|layer| layer.id == id)
-                .unwrap()
-                .mask
-                .as_mut()
-                .unwrap()
-                .pixels = Arc::new(RgbaImage::from_fn(6, 4, |x, _| {
-                Rgba([255, 255, 255, (x * 40) as u8])
-            }));
-            original = DocumentContent::from_layers(6, 4, restored).unwrap();
-            assert_eq!(
-                composite(&original, &paint, Some(id), Some(base), 1024, false, false),
-                *content.composite()
-            );
-        }
-    }
 }

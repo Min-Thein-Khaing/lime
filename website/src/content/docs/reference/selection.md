@@ -2,11 +2,13 @@
 title: "Selection tools"
 description: "Compare geometric, freehand, and connected-color selections."
 translationKey: reference/selection
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 Selections limit painting, fills, clearing, and many effects. A selection belongs to the canvas, not to the active layer. Switching layers does not move it.
+
+Press **Delete** or **Backspace**, or choose **Edit → Clear to Transparency**, to clear the selected area of the active visible raster layer. Soft edges erase proportionally. With no selection restriction, the whole layer clears; **Undo** restores it. All raster layers support transparency. Alpha Lock blocks clearing; rasterize editable text before clearing its pixels.
 
 ## Choose a tool {#tools}
 

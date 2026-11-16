@@ -4,8 +4,6 @@
 )]
 
 mod adjustments;
-#[cfg(test)]
-mod capability_tests;
 mod color_management;
 mod color_memory;
 mod commands;
@@ -28,6 +26,8 @@ mod pdf;
 mod preview;
 mod project;
 mod recovery;
+#[cfg(test)]
+mod safety_tests;
 mod selection;
 mod settings;
 mod text;

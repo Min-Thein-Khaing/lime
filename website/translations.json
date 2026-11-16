@@ -64,16 +64,16 @@
     "my": "54c8a99c07ab7b0b71ad68ec7054a9269dfd46d4ac90df3f5a13d9cf6d4fdbed"
   },
   "guides/text-effects": {
-    "en": "91ab1ea899fb81915b17866e3e1e5c46cc0e5740e6f8ad0c8e4dd2fa66dcb17d",
-    "my": "b94e15e771ac9dfae6fc24772920a27d5c43f2b5d60e74298f8fb9797ea0926d"
+    "en": "d244a66aa9ad6909f1ea13d3877b44d8a2c51090629b422c80c996281802d8b9",
+    "my": "35bfd705438ad9230907c491d630d03a74eee69640d323afc8e642f8fa76fdcf"
   },
   "guides/paths": {
     "en": "b66b0fb54bb33d3b90494e4879870646b22a331f7e2f9d7029f6387580c9ed27",
     "my": "5d2b1c7e6a791e0d7c154004ea0eaae104e214759f9f7b6e47a59c9b85e68006"
   },
   "reference/selection": {
-    "en": "08b8285cf1a286f16c421cd5d386c3c4ce90c95d9452c64ebf0bdf3d47480b18",
-    "my": "c8ee07495aef299522db21a11a9d617947c5a8e9189784711db01db9a1ef6316"
+    "en": "0ac87a9672a767eb9e709461e881494f578e362f0dc87c3ba329e2262e3845fd",
+    "my": "38f0411cbe32895534339d67d86df231ba10834ddff4aab4819cee29e652a428"
   },
   "reference/painting": {
     "en": "ee255aafccd10c220e0b7aadc2689a84ab90e32a499eaadefff02f28cdde6333",
@@ -92,19 +92,19 @@
     "my": "faa83802f30c507a8c8e91cf9161b29554c71f22887b6ce80fca7f7a578fce82"
   },
   "reference/shortcuts": {
-    "en": "e6f5a0fc230b791abe93132686489a3eb2bd10848b127c086cfec3fa9eba30b5",
-    "my": "30ef5e029646829e8d8f129bc601bc14ba97b2db03b6aaeea22bda16ba6838bd"
+    "en": "7da4de6affb4b8400b2669585e46c8b6bf8caf61df35305c50bc4df5c2c7acba",
+    "my": "da32ca1ebe2456e2c249f50d31e341a651b97453212dc17980419d80b87f24f9"
   },
   "troubleshooting/painting": {
     "en": "3c3ab63597bacb397bcddb4078342763ebe6b1109aeb735e5be3901146bf17fb",
     "my": "ba2a6ed87053a90423b120824eac5395eb3bfbf01e8b2f7812dfd57a98fddef7"
   },
   "troubleshooting/moving": {
-    "en": "45af9974a28bc27e100c3cdd16391ae3432437d08c96ca08c7328ba29f33d3da",
-    "my": "654abcd232525928b70218469281efc1a117f1023405e1f9e0fbf4a67cd2d109"
+    "en": "228affe3b89a9e4e6d0274c0c18070466508953538ea4e54a388eaa77128edb4",
+    "my": "d541232fdcdfb43426dc984509279cd298abd616db19917dd63442b37c6412ee"
   },
   "troubleshooting/files-text-recovery": {
-    "en": "7d1b5fb6f3507188ec4cf0d0faefc64aea805ab37289995fe854bc55a8dc13ff",
-    "my": "36f4525d18bd3234c09c30d2bbbff5651872b4e1df46a1bbc4f4792f5b903013"
+    "en": "2526beeec0a8235a6d8df43d17759aa1405b227ab3f0edcdc117c42a262cf53c",
+    "my": "df9ef4bf74fd748c5e3fb3cb8d412b14abac54488f3a5563dfccc5f9c3b2a3c0"
   }
 }

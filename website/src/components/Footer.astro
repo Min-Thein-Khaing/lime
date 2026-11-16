@@ -5,7 +5,7 @@ const my = Astro.url.pathname.startsWith(`${base}/mm/`);
 ---
 <DefaultFooter {...Astro.props} />
 <div class="guide-footer" data-pagefind-ignore>
-  <span>{my ? 'Lime 1.2.2 အတွက် လမ်းညွှန်' : 'Guides for Lime 1.2.2'}</span>
+  <span>{my ? 'Lime 1.2.3 အတွက် လမ်းညွှန်' : 'Guides for Lime 1.2.3'}</span>
   <nav aria-label={my ? 'အခြားလင့်ခ်များ' : 'More resources'}>
     <a href={`${base}/${my ? 'mm/' : ''}start/install/`}>{my ? 'Lime ရယူရန်' : 'Get Lime'}</a>
     <a href="https://github.com/eimg/lime/issues">{my ? 'ပြဿနာတင်ပြရန်' : 'Report a problem'}</a>

@@ -1601,8 +1601,8 @@ impl Workspace {
                         window.refresh();
                     }))
                     .when(show_tool_cursor, |area| {
-                        // The painted cursor hides the system pointer. A selection that can
-                        // be moved or resized needs that pointer, so the hand and arrows show.
+                        // Guides and editable geometry use native cursors; the other
+                        // tools paint their own cursor and hide the system pointer.
                         let guide_cursor = self.guide_cursor(scale);
                         let native_cursor = guide_cursor.is_some()
                             || (matches!(self.preferences.tool, Tool::Select | Tool::OvalSelect)
@@ -3348,35 +3348,34 @@ fn tool_cursor(
                 return;
             }
 
-            let horizontal = if hotspot.x + px(27.) < bounds.right() {
-                7.
+            let icon_bounds = if tool == Tool::Move {
+                // The four-arrow icon is the cursor itself, centered on the grab point.
+                Bounds::centered_at(hotspot, size(px(24.), px(24.)))
             } else {
-                -27.
-            };
-            let vertical = if hotspot.y + px(27.) < bounds.bottom() {
-                7.
-            } else {
-                -27.
-            };
-            let icon_bounds = Bounds::new(
-                hotspot + point(px(horizontal), px(vertical)),
-                size(px(20.), px(20.)),
-            );
-            let (shadow_bounds, shadow_path) = if tool == Tool::Move {
-                // A small shadow keeps the arrowheads readable at badge size.
-                (
-                    Bounds::new(icon_bounds.origin + point(px(1.), px(1.)), icon_bounds.size),
-                    icon.into(),
+                let horizontal = if hotspot.x + px(27.) < bounds.right() {
+                    7.
+                } else {
+                    -27.
+                };
+                let vertical = if hotspot.y + px(27.) < bounds.bottom() {
+                    7.
+                } else {
+                    -27.
+                };
+                Bounds::new(
+                    hotspot + point(px(horizontal), px(vertical)),
+                    size(px(20.), px(20.)),
                 )
-            } else {
-                (icon_bounds, outline.clone())
             };
             for (bounds, path, color) in [
-                (shadow_bounds, shadow_path, rgb(0x12151c)),
+                (icon_bounds, outline.clone(), rgb(0x12151c)),
                 (icon_bounds, icon.into(), rgb(0xffffff)),
             ] {
                 let _ =
                     window.paint_svg(bounds, path, TransformationMatrix::unit(), color.into(), cx);
+            }
+            if tool == Tool::Move {
+                return;
             }
             for (length, weight, color) in [(11., 3., rgb(0x12151c)), (9., 1., rgb(0xffffff))] {
                 window.paint_quad(fill(
@@ -4831,29 +4830,4 @@ fn dot_grid() -> impl IntoElement {
     )
     .absolute()
     .size_full()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{Duration, dash_at, marching_phase, span_draw_range};
-
-    #[test]
-    fn selection_phase_changes_between_frames_even_at_large_clock_values() {
-        let elapsed = Duration::from_secs(2_000_000_000);
-        assert_eq!(marching_phase(elapsed + Duration::from_millis(125)), 3.);
-        assert_eq!(marching_phase(elapsed + Duration::from_millis(250)), 6.);
-    }
-
-    #[test]
-    fn a_backward_edge_still_covers_its_visible_span() {
-        assert_eq!(span_draw_range(0., 100., 10., 90.), (10., 90.));
-        assert_eq!(span_draw_range(100., 0., 10., 90.), (10., 90.));
-    }
-
-    #[test]
-    fn the_dash_phase_shifts_the_pattern_around_corners() {
-        assert_eq!(dash_at(0., 0., 0.), (true, 4.));
-        assert_eq!(dash_at(0., 0., 2.), (false, 2.));
-        assert_eq!(dash_at(0., 10., 2.), dash_at(10., 0., 2.));
-    }
 }

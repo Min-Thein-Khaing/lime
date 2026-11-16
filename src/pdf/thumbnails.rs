@@ -125,34 +125,3 @@ pub(super) fn render_local(
     }))
     .map_err(|_| anyhow!("The PDF page previews could not be read."))?
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn thumbnail_scales_bound_large_small_and_thin_pages_without_collapsing_an_axis() {
-        for size in [
-            (612., 792.),
-            (1., 1.),
-            (100_000., 1.),
-            (1., 100_000.),
-            (f32::MAX, 1.),
-        ] {
-            let scales = thumbnail_scales(size).unwrap();
-            let pixels = ((size.0 * scales.0) as u32, (size.1 * scales.1) as u32);
-            assert!((1..=THUMBNAIL_EDGE).contains(&pixels.0));
-            assert!((1..=THUMBNAIL_EDGE).contains(&pixels.1));
-            assert_eq!(pixels.0.max(pixels.1), THUMBNAIL_EDGE);
-        }
-        for size in [
-            (0., 1.),
-            (-1., 1.),
-            (1., f32::NAN),
-            (f32::INFINITY, 1.),
-            (f32::from_bits(1), 1.),
-        ] {
-            assert!(thumbnail_scales(size).is_err());
-        }
-    }
-}

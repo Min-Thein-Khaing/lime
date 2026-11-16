@@ -2,8 +2,8 @@
 title: "A layer cannot move or transform"
 description: "Resolve locks, linked-layer restrictions, offscreen handles, and unfinished previews."
 translationKey: troubleshooting/moving
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Check the layer and locks {#locks}
@@ -12,6 +12,8 @@ translatedRevision: "1.2.2-guide-1"
 2. Check the row's position padlock, or **Layer → Toggle Position Lock**. Position lock blocks pointer moves, X/Y edits, nudges, alignment, Scale/Rotate/Flip/Perspective, Fit Layer to Canvas, and layer content crop.
 3. If movement is linked, inspect every enabled chain member and attached descendant. One participating locked layer blocks the entire move, including a hidden member. Lime names a locked participant when a pointer/nudge attempt is blocked.
 4. For Scale Layer and other pixel transforms on editable text, keep a `.lime` copy, then use **Layer → Rasterize Text Layer**. Moving editable text does not itself require rasterization.
+
+Move uses a four-arrow cursor without a crosshair and always targets the active layer, even when the pointer is over another layer or empty canvas. Select the intended row in Layers before dragging. Guide grabs still use their own cursors.
 
 ## Finish an existing edit {#preview}
 

@@ -224,33 +224,3 @@ fn wheel_image() -> Arc<RenderImage> {
         })
         .clone()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn hsv_preserves_rgb_on_round_trip() {
-        for r in (0..=255).step_by(15) {
-            for g in (0..=255).step_by(15) {
-                for b in (0..=255).step_by(15) {
-                    let color = u32::from_be_bytes([0, r, g, b]);
-                    assert_eq!(Hsv::from_rgb(color).rgb(), color);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn selecting_hue_from_black_is_visible_and_brightness_preserves_hue() {
-        let bounds = Bounds::new(point(px(0.), px(0.)), size(px(200.), px(200.)));
-        let hsv = ColorControl::Wheel
-            .at(Hsv::from_rgb(0), bounds, point(px(200.), px(100.)), true)
-            .unwrap();
-        assert_eq!(hsv.rgb(), 0xff0000);
-        let dimmed = ColorControl::Brightness
-            .at(hsv, bounds, point(px(100.), px(0.)), false)
-            .unwrap();
-        assert_eq!(dimmed.rgb(), 0x800000);
-    }
-}

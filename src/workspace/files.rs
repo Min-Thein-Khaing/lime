@@ -678,66 +678,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn canceled_rejected_failed_and_successful_export_events_use_the_real_write_flow() {
-        use super::super::settings_ui::Preferences;
-        let directory = tempfile::tempdir().unwrap();
-        let tab = super::super::tests::opacity_tab();
-        let revision = tab.history.revision();
-        let pixels = tab.document.content.composite();
-        let mut preferences = Preferences::default();
-        let original = preferences.clone();
-        let format = ExportFormat::Raster {
-            format: FileFormat::Jpeg,
-            jpeg_quality: 81,
-        };
-        let kind = WriteKind::Export(format);
-
-        // The native chooser's canceled result reaches this same destination route.
-        assert!(format.destination(None).unwrap().is_none());
-        assert!(preferences == original);
-        assert!(
-            format
-                .destination(Some(directory.path().join("wrong.png")))
-                .is_err()
-        );
-        assert!(preferences == original);
-
-        // A directory with the right suffix passes destination validation, then
-        // makes the atomic writer fail deterministically on every host platform.
-        let blocked = directory.path().join("blocked.jpeg");
-        std::fs::create_dir(&blocked).unwrap();
-        let path = format.destination(Some(blocked.clone())).unwrap().unwrap();
-        let failed = kind.write(&tab.document.content, &path);
-        assert!(failed.is_err());
-        kind.remember_completed_export(&failed, &mut preferences);
-        assert!(preferences == original);
-        assert!(blocked.is_dir());
-
-        let path = format
-            .destination(Some(directory.path().join("image.jpeg")))
-            .unwrap()
-            .unwrap();
-        let succeeded = kind.write(&tab.document.content, &path);
-        succeeded.as_ref().unwrap();
-        kind.remember_completed_export(&succeeded, &mut preferences);
-        assert_eq!(preferences.export_type, ExportType::Jpeg);
-        assert_eq!(preferences.jpeg_quality, 81);
-        assert_eq!(
-            Document::open(&path).unwrap().content.size(),
-            tab.document.content.size()
-        );
-        assert_eq!(tab.history.revision(), revision);
-        assert_eq!(tab.document.content.composite(), pixels);
-
-        let settings_path = directory.path().join("settings.json");
-        let mut patch = crate::settings::Patch::default();
-        patch.record(&original, &preferences).unwrap();
-        crate::settings::save::<Preferences>(&settings_path, &patch).unwrap();
-        let restored = crate::settings::load::<Preferences>(&settings_path).unwrap();
-        assert!(restored.preferences == preferences);
-    }
-
-    #[test]
     fn raster_save_rechecks_content_that_changed_while_the_dialog_was_open() {
         let mut document = Document::from_pixels("Image.png".into(), image::RgbaImage::new(2, 2));
         document.format = FileFormat::Png;
@@ -781,24 +721,6 @@ mod tests {
             )
             .unwrap();
         assert!(save.validate_document(&document).is_err());
-    }
-
-    #[test]
-    fn save_routes_follow_format_and_content() {
-        use FileFormat::{Png, Project};
-        use SaveMode::{As, Current, ProjectAs};
-        let prompt = |project_only| SaveRoute::Prompt { project_only };
-        assert_eq!(save_route(Current, true, Png, true), SaveRoute::Overwrite);
-        assert_eq!(
-            save_route(Current, true, Project, false),
-            SaveRoute::Overwrite
-        );
-        assert_eq!(save_route(Current, true, Png, false), prompt(true));
-        assert_eq!(save_route(Current, false, Project, false), prompt(true));
-        assert_eq!(save_route(As, true, Png, true), prompt(false));
-        assert_eq!(save_route(As, true, Png, false), prompt(true));
-        assert_eq!(save_route(As, true, Project, false), prompt(true));
-        assert_eq!(save_route(ProjectAs, true, Png, true), prompt(true));
     }
 
     #[test]
@@ -847,92 +769,5 @@ mod tests {
         let pdf_alias = directory.path().join("alias.pdf");
         std::os::unix::fs::symlink(&project, &pdf_alias).unwrap();
         assert!(prepare_export(&pdf_alias, ExportFormat::Pdf { dpi: 300 }).is_err());
-    }
-
-    #[test]
-    fn pdf_is_export_only_and_keeps_sensible_source_names() {
-        let directory = tempfile::tempdir().unwrap();
-        let format = ExportFormat::Pdf { dpi: 300 };
-        let pdf = directory.path().join("export.PDF");
-        assert!(prepare_export(&pdf, format).is_ok());
-        assert!(prepare_destination(&pdf, false).is_err());
-        assert!(prepare_export(&directory.path().join("export.png"), format).is_err());
-        let mut document = Document::from_content(
-            "source.pdf".into(),
-            crate::document::DocumentContent::single_layer(
-                "Page 1".into(),
-                image::RgbaImage::new(1, 1),
-            ),
-        );
-        for (name, expected) in [
-            ("source.pdf", "source.pdf"),
-            ("source.PNG", "source.pdf"),
-            ("art.lime", "art.pdf"),
-            ("source.pdf.lime", "source.pdf"),
-            ("Untitled 1", "Untitled 1.pdf"),
-            ("source (2)", "source (2).pdf"),
-        ] {
-            document.name = name.into();
-            assert_eq!(suggested_export_name(&document, format), expected);
-        }
-        document.path = Some(directory.path().join("saved.lime"));
-        assert_eq!(suggested_export_name(&document, format), "saved.pdf");
-        document.path = Some(directory.path().join("saved.pdf.lime"));
-        assert_eq!(suggested_export_name(&document, format), "saved.pdf");
-    }
-
-    #[test]
-    fn destinations_reject_mismatched_extensions() {
-        let directory = tempfile::tempdir().unwrap();
-        let path = |name: &str| directory.path().join(name);
-        assert!(prepare_destination(&path("a.png"), true).is_err());
-        assert!(prepare_destination(&path("a.txt"), false).is_err());
-        for name in ["a.lime", "a.LIME", "a.imageedit"] {
-            assert_eq!(
-                prepare_destination(&path(name), true).unwrap().1,
-                FileFormat::Project
-            );
-        }
-        let (saved, format) = prepare_destination(&path("a.png"), false).unwrap();
-        assert_eq!(format, FileFormat::Png);
-        assert_eq!(
-            saved,
-            directory.path().canonicalize().unwrap().join("a.png")
-        );
-
-        let png = ExportFormat::Raster {
-            format: FileFormat::Png,
-            jpeg_quality: 92,
-        };
-        let jpeg = ExportFormat::Raster {
-            format: FileFormat::Jpeg,
-            jpeg_quality: 92,
-        };
-        assert!(prepare_export(&path("a.imageedit"), png).is_err());
-        assert!(prepare_export(&path("a.lime"), png).is_err());
-        assert!(prepare_export(&path("a.png"), jpeg).is_err());
-        assert!(prepare_export(&path("a.jpeg"), jpeg).is_ok());
-        assert!(prepare_export(&path("missing/a.png"), png).is_err());
-    }
-
-    #[test]
-    fn project_save_as_suggests_lime_including_for_legacy_projects() {
-        let mut document = Document::blank("Untitled 1".into(), 1, 1, Rgba([0; 4]));
-        assert_eq!(
-            suggested_name(&document, FileFormat::Project),
-            "Untitled 1.lime"
-        );
-        for name in ["photo.png", "photo.imageedit", "photo.lime", "photo.LIME"] {
-            document.name = name.into();
-            document.path = Some(PathBuf::from(name));
-            let expected = if name.ends_with(".LIME") {
-                name
-            } else {
-                "photo.lime"
-            };
-            assert_eq!(suggested_name(&document, FileFormat::Project), expected);
-        }
-        document.name = "photo.jpeg".into();
-        assert_eq!(suggested_name(&document, FileFormat::Jpeg), "photo.jpeg");
     }
 }

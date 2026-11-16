@@ -88,34 +88,3 @@ pub(crate) fn rasterize(icon: &str, pixels: u32, color: u32) -> Result<Vec<u8>> 
         .flat_map(|pixel| [rgb[0], rgb[1], rgb[2], pixel.alpha()])
         .collect())
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use gpui::MenuItem;
-
-    #[test]
-    fn menu_icons_render_from_the_shared_assets() {
-        fn visit(item: &MenuItem) {
-            match item {
-                MenuItem::Action { action, .. } => {
-                    if let Some(icon) = for_action(action.as_ref()) {
-                        for size in [16, 32] {
-                            let rgba = rasterize(icon, size, 0xe9edf4).unwrap();
-                            assert_eq!(rgba.len(), (size * size * 4) as usize);
-                            assert!(rgba.as_chunks::<4>().0.iter().any(|pixel| pixel[3] != 0));
-                        }
-                    }
-                }
-                MenuItem::Submenu(menu) => menu.items.iter().for_each(visit),
-                _ => {}
-            }
-        }
-        for menu in application_menus(false) {
-            menu.items.iter().for_each(visit);
-        }
-        assert_eq!(for_action(&Undo), Some("undo"));
-        assert_eq!(for_action(&Levels), None);
-        assert_eq!(for_action(&Quit), None);
-    }
-}

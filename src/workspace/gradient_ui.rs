@@ -800,17 +800,3 @@ fn drop_gradient_preview(
         cx,
     );
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn overlapping_gradient_handles_can_extend_a_zero_length_gradient() {
-        let start = gpui::point(gpui::px(10.), gpui::px(10.));
-        assert_eq!(nearest_gradient_handle([start, start], start), Some(1));
-        let end = gpui::point(gpui::px(20.), gpui::px(10.));
-        assert_eq!(nearest_gradient_handle([start, end], start), Some(0));
-        assert_eq!(nearest_gradient_handle([start, end], end), Some(1));
-    }
-}

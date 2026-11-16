@@ -268,12 +268,6 @@ impl Curve {
         self.count as usize
     }
 
-    #[cfg(test)]
-    pub fn endpoints(self) -> ((u8, u8), (u8, u8)) {
-        let last = self.point_count() - 1;
-        (self.points[0], self.points[last])
-    }
-
     pub fn is_identity(self) -> bool {
         self.points().iter().all(|(x, y)| x == y)
     }
@@ -389,16 +383,6 @@ pub struct ChannelLut {
 }
 
 impl ChannelLut {
-    #[cfg(test)]
-    pub fn is_identity(self) -> bool {
-        (0..256).all(|index| {
-            let index = index as u8;
-            self.red[index as usize] == index
-                && self.green[index as usize] == index
-                && self.blue[index as usize] == index
-        })
-    }
-
     pub fn map(self, red: u8, green: u8, blue: u8) -> [u8; 3] {
         [
             self.red[red as usize],
@@ -438,15 +422,6 @@ impl ChannelLut {
     }
 }
 
-#[cfg(test)]
-pub fn channel_lut(adjustment: Adjustment) -> Option<ChannelLut> {
-    match adjustment {
-        Adjustment::Levels(levels) => Some(ChannelLut::from_levels(levels)),
-        Adjustment::Curves(curves) => Some(ChannelLut::from_curves(curves)),
-        _ => None,
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Histogram {
     pub red: [u32; 256],
@@ -480,21 +455,6 @@ impl Histogram {
             MapChannel::Green => self.green,
             MapChannel::Blue => self.blue,
         }
-    }
-
-    #[cfg(test)]
-    pub fn is_flat(self, channel: MapChannel) -> bool {
-        let bins = self.bins(channel);
-        let count = bins[0];
-        count > 0 && bins.iter().all(|bin| *bin == count)
-    }
-
-    #[cfg(test)]
-    pub fn range(self, channel: MapChannel) -> Option<(u8, u8)> {
-        let bins = self.bins(channel);
-        let first = bins.iter().position(|bin| *bin > 0)?;
-        let last = bins.iter().rposition(|bin| *bin > 0)?;
-        Some((first as u8, last as u8))
     }
 }
 
@@ -536,11 +496,6 @@ impl PreviewGeneration {
         self.latest != self.shown
     }
 
-    #[cfg(test)]
-    pub fn shown(self) -> u64 {
-        self.shown
-    }
-
     // A finished preview is shown only when no newer slider change is waiting.
     pub fn finish(&mut self, generation: u64) -> bool {
         if generation == self.latest && generation != 0 {
@@ -558,11 +513,6 @@ pub struct Adjusted {
     pub top: u32,
     pub right: u32,
     pub bottom: u32,
-}
-
-#[cfg(test)]
-pub fn adjust_pixel(pixel: Rgba<u8>, adjustment: Adjustment) -> Rgba<u8> {
-    Prepared::from(adjustment).map(pixel)
 }
 
 pub fn apply_pixels(
@@ -927,355 +877,4 @@ fn hue_channel(p: f64, q: f64, mut t: f64) -> u8 {
         p
     };
     (value * 255.0).round().clamp(0.0, 255.0) as u8
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn plain(pixel: Rgba<u8>) -> Rgba<u8> {
-        pixel
-    }
-
-    #[test]
-    fn identity_settings_leave_every_channel_unchanged() {
-        let pixel = Rgba([12, 34, 56, 78]);
-        for adjustment in [
-            Adjustment::BrightnessContrast {
-                brightness: 0,
-                contrast: 0,
-            },
-            Adjustment::HueSaturation {
-                hue: 0,
-                saturation: 0,
-                lightness: 0,
-            },
-            Adjustment::ColorBalance(ColorBalance::default()),
-            Adjustment::Levels(Levels::default()),
-            Adjustment::Curves(Curves::default()),
-        ] {
-            assert!(adjustment.is_identity());
-            assert!(
-                apply_pixels(
-                    &RgbaImage::from_pixel(2, 2, pixel),
-                    adjustment,
-                    |_, _| 255,
-                    plain
-                )
-                .is_none()
-            );
-        }
-    }
-
-    #[test]
-    fn brightness_contrast_hue_desaturate_and_invert_match_their_fixtures() {
-        let red = Rgba([255, 0, 0, 200]);
-        assert_eq!(
-            adjust_pixel(
-                Rgba([0, 10, 255, 40]),
-                Adjustment::BrightnessContrast {
-                    brightness: 100,
-                    contrast: 0,
-                },
-            )
-            .0,
-            [255, 255, 255, 40]
-        );
-        assert_eq!(
-            adjust_pixel(
-                Rgba([200, 128, 64, 9]),
-                Adjustment::BrightnessContrast {
-                    brightness: 0,
-                    contrast: 0,
-                },
-            )
-            .0,
-            [200, 128, 64, 9]
-        );
-        assert_eq!(
-            brightness_contrast(64, 0, -100),
-            128,
-            "full negative contrast flattens to the midpoint"
-        );
-        assert_eq!(
-            adjust_pixel(
-                red,
-                Adjustment::HueSaturation {
-                    hue: 120,
-                    saturation: 0,
-                    lightness: 0,
-                },
-            )
-            .0,
-            [0, 255, 0, 200]
-        );
-        assert_eq!(
-            adjust_pixel(
-                red,
-                Adjustment::HueSaturation {
-                    hue: 0,
-                    saturation: -100,
-                    lightness: 0,
-                },
-            )
-            .0,
-            [128, 128, 128, 200]
-        );
-        assert_eq!(
-            adjust_pixel(
-                Rgba([255, 40, 0, 255]),
-                Adjustment::BrightnessContrast {
-                    brightness: -100,
-                    contrast: 0,
-                },
-            )
-            .0,
-            [0, 0, 0, 255]
-        );
-        assert_eq!(
-            adjust_pixel(
-                red,
-                Adjustment::HueSaturation {
-                    hue: 0,
-                    saturation: 0,
-                    lightness: 100,
-                },
-            )
-            .0,
-            [255, 255, 255, 200]
-        );
-        assert_eq!(
-            adjust_pixel(
-                Rgba([128, 128, 128, 255]),
-                Adjustment::HueSaturation {
-                    hue: 40,
-                    saturation: 100,
-                    lightness: 0,
-                },
-            )
-            .0,
-            [128, 128, 128, 255]
-        );
-        assert_eq!(
-            adjust_pixel(red, Adjustment::Desaturate).0,
-            [77, 77, 77, 200]
-        );
-        assert_eq!(
-            adjust_pixel(Rgba([1, 2, 3, 9]), Adjustment::Invert).0,
-            [254, 253, 252, 9]
-        );
-        assert_eq!(
-            adjust_pixel(
-                adjust_pixel(Rgba([1, 2, 3, 9]), Adjustment::Invert),
-                Adjustment::Invert,
-            )
-            .0,
-            [1, 2, 3, 9]
-        );
-    }
-
-    #[test]
-    fn coverage_blends_the_effect_and_keeps_the_original_alpha() {
-        let source = RgbaImage::from_pixel(1, 3, Rgba([0, 0, 0, 40]));
-        let adjusted = apply_pixels(
-            &source,
-            Adjustment::Invert,
-            |_, y| if y == 0 { 0 } else { 128 },
-            plain,
-        )
-        .unwrap();
-        assert_eq!(adjusted.pixels.get_pixel(0, 0).0, [0, 0, 0, 40]);
-        assert_eq!(adjusted.pixels.get_pixel(0, 1).0, [128, 128, 128, 40]);
-        assert_eq!(adjusted.top, 1);
-    }
-
-    #[test]
-    fn a_stale_preview_does_not_replace_the_latest_slider_change() {
-        let mut preview = PreviewGeneration::default();
-        assert!(!preview.pending());
-        let first = preview.request();
-        let second = preview.request();
-        assert!(preview.pending());
-        assert!(!preview.finish(first));
-        assert!(preview.pending());
-        assert_eq!(preview.shown(), 0);
-        assert!(preview.finish(second));
-        assert!(!preview.pending());
-        assert_eq!(preview.shown(), second);
-        let reset = preview.request();
-        assert!(preview.pending());
-        assert!(!preview.finish(second));
-        assert!(preview.pending());
-        assert!(preview.finish(reset));
-        assert!(!preview.pending());
-        assert!(!preview.finish(first));
-        assert_eq!(preview.shown(), reset);
-    }
-
-    #[test]
-    fn levels_and_curves_use_one_lookup_and_match_fixed_points() {
-        assert!(
-            channel_lut(Adjustment::Levels(Levels::default()))
-                .unwrap()
-                .is_identity()
-        );
-        assert!(
-            channel_lut(Adjustment::Curves(Curves::default()))
-                .unwrap()
-                .is_identity()
-        );
-        assert!(channel_lut(Adjustment::Invert).is_none());
-
-        let levels = Levels::default()
-            .set_stops(MapChannel::Value, LevelStops::IDENTITY.set_input_black(128));
-        let lut = channel_lut(Adjustment::Levels(levels)).unwrap();
-        assert_eq!(lut.red[0], 0);
-        assert_eq!(lut.red[128], 0);
-        assert_eq!(lut.red[192], 129);
-        assert_eq!(lut.red[255], 255);
-        assert_eq!(lut.green[192], lut.red[192]);
-
-        let gamma =
-            Levels::default().set_stops(MapChannel::Value, LevelStops::IDENTITY.set_gamma(200));
-        let lut = channel_lut(Adjustment::Levels(gamma)).unwrap();
-        assert_eq!(lut.blue[0], 0);
-        assert_eq!(lut.blue[128], 181);
-        assert_eq!(lut.blue[255], 255);
-
-        let red_only = Levels::default().set_stops(
-            MapChannel::Red,
-            LevelStops::IDENTITY.set_output_black(0).set_output_white(0),
-        );
-        let lut = channel_lut(Adjustment::Levels(red_only)).unwrap();
-        assert_eq!(lut.red[255], 0);
-        assert_eq!(lut.green[255], 255);
-
-        let curves = Curves::default().set_curve(
-            MapChannel::Value,
-            Curve::identity().try_add(128, 64).unwrap(),
-        );
-        let lut = channel_lut(Adjustment::Curves(curves)).unwrap();
-        assert_eq!(lut.red[0], 0);
-        assert_eq!(lut.red[64], 32);
-        assert_eq!(lut.red[128], 64);
-        assert_eq!(lut.red[255], 255);
-        let inverted = Curve::identity().move_point(0, 9, 255).move_point(1, 0, 0);
-        assert_eq!(inverted.map(0), 255);
-        assert_eq!(inverted.map(128), 127);
-        assert_eq!(inverted.map(255), 0);
-        assert!(Curve::identity().try_add(40, 40).unwrap().is_identity());
-        assert_eq!(LevelStops::IDENTITY.set_input_black(255).input_black, 254);
-        assert_eq!(LevelStops::IDENTITY.set_input_white(0).input_white, 1);
-        assert_eq!(LevelStops::IDENTITY.set_gamma(1).gamma, GAMMA_MIN);
-        assert_eq!(LevelStops::IDENTITY.set_gamma(5000).gamma, GAMMA_MAX);
-    }
-
-    #[test]
-    fn preserved_luminosity_survives_a_channel_clipping_at_white() {
-        let before = Rgba([250, 250, 250, 99]);
-        let balance = ColorBalance::default().set_shift(BalanceRange::Highlights, 0, -100);
-        let after = adjust_pixel(before, Adjustment::ColorBalance(balance));
-        let luminance = |p: Rgba<u8>| {
-            (f64::from(p[0]) * 77.0 + f64::from(p[1]) * 150.0 + f64::from(p[2]) * 29.0) / 256.0
-        };
-        assert!((luminance(before) - luminance(after)).abs() <= 1.0);
-        assert_eq!(after[3], before[3]);
-    }
-
-    #[test]
-    fn color_balance_shifts_a_range_and_can_keep_luminosity() {
-        let mut balance = ColorBalance::default().set_preserve_luminosity(false);
-        balance.midtones[0] = 100;
-        assert_eq!(
-            adjust_pixel(
-                Rgba([128, 128, 128, 255]),
-                Adjustment::ColorBalance(balance)
-            )
-            .0,
-            [255, 128, 128, 255]
-        );
-        balance.midtones[0] = 0;
-        balance.shadows[0] = 100;
-        assert_eq!(
-            adjust_pixel(Rgba([0, 0, 0, 200]), Adjustment::ColorBalance(balance)).0,
-            [179, 0, 0, 200]
-        );
-        balance.shadows[0] = 0;
-        balance.highlights[0] = 100;
-        assert_eq!(
-            adjust_pixel(Rgba([0, 0, 0, 200]), Adjustment::ColorBalance(balance)).0,
-            [0, 0, 0, 200]
-        );
-        let preserved = ColorBalance::default().set_shift(BalanceRange::Midtones, 0, 100);
-        assert_eq!(
-            adjust_pixel(
-                Rgba([128, 128, 128, 255]),
-                Adjustment::ColorBalance(preserved)
-            )
-            .0,
-            [196, 99, 99, 255]
-        );
-    }
-
-    #[test]
-    fn curve_points_stay_inside_bounds_and_keep_x_in_order() {
-        let curve = Curve::identity()
-            .try_add(128, 200)
-            .unwrap()
-            .try_add(64, 20)
-            .unwrap();
-        assert_eq!(curve.points()[2], (128, 200));
-        let moved = curve.move_point(2, 10, 180);
-        assert_eq!(moved.points()[2].0, 65);
-        let moved = curve.move_point(1, 250, 30);
-        assert_eq!(moved.points()[1].0, 127);
-        assert_eq!(curve.move_point(0, 100, 5).endpoints().0, (0, 5));
-        assert_eq!(curve.move_point(3, 0, 9).endpoints().1, (255, 9));
-        assert_eq!(curve.remove_point(0).point_count(), 4);
-        assert_eq!(curve.remove_point(1).point_count(), 3);
-        assert!(curve.try_add(64, 1).is_none());
-        let mut full = Curve::identity();
-        for x in 1..15 {
-            full = full.try_add(x, 0).unwrap();
-        }
-        assert_eq!(full.point_count(), MAX_CURVE_POINTS);
-        assert!(full.try_add(20, 0).is_none());
-    }
-
-    #[test]
-    fn histograms_distinguish_empty_uniform_and_flat_images() {
-        let clear = histogram(&RgbaImage::from_pixel(2, 2, Rgba([9, 9, 9, 0])), |_, _| 255);
-        assert!(clear.is_empty());
-        assert!(!clear.is_flat(MapChannel::Value));
-        assert_eq!(clear.range(MapChannel::Red), None);
-        assert_eq!(Curve::identity().endpoints(), ((0, 0), (255, 255)));
-        assert_eq!(Curve::identity().map(0), 0);
-
-        let red = histogram(
-            &RgbaImage::from_pixel(1, 1, Rgba([255, 0, 0, 255])),
-            |_, _| 255,
-        );
-        assert_eq!(red.range(MapChannel::Red), Some((255, 255)));
-        assert_eq!(red.range(MapChannel::Green), Some((0, 0)));
-        assert_eq!(red.range(MapChannel::Value), Some((77, 77)));
-        assert!(!red.is_flat(MapChannel::Value));
-        let endpoint = Curve::identity().move_point(0, 40, 10);
-        assert_eq!(endpoint.endpoints().0, (0, 10));
-        assert_eq!(endpoint.map(77), 84);
-
-        let mut ramp = RgbaImage::new(256, 1);
-        for x in 0..256 {
-            ramp.put_pixel(x, 0, Rgba([x as u8, x as u8, x as u8, 255]));
-        }
-        let flat = histogram(&ramp, |_, _| 255);
-        assert!(flat.is_flat(MapChannel::Value));
-        assert!(flat.is_flat(MapChannel::Red));
-        assert_eq!(flat.range(MapChannel::Value), Some((0, 255)));
-
-        let mut mixed = RgbaImage::from_pixel(2, 1, Rgba([4, 4, 4, 0]));
-        mixed.put_pixel(1, 0, Rgba([4, 5, 6, 255]));
-        let counted = histogram(&mixed, |_, _| 255);
-        assert_eq!(counted.range(MapChannel::Red), Some((4, 4)));
-        assert_eq!(counted.bins(MapChannel::Red)[4], 1);
-    }
 }

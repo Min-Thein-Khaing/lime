@@ -35,6 +35,11 @@ jobs:
           Write-Output "Target: $env:RUST_TARGET"
           rustc -vV
 
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
       - name: Locate the Windows SDK fxc.exe
         shell: pwsh
         run: |
@@ -55,17 +60,38 @@ jobs:
             Write-Output "MSVC tools: $env:VCToolsInstallDir"
           }
 
+      - name: Identify Rust cache
+        id: rust-cache
+        shell: bash
+        run: echo "version=$(rustc -V)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Rust dependencies and build artifacts
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+            !target/**/incremental
+            !target/**/lime*
+          key: lime-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust-cache.outputs.version }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'vendor/**') }}-${{ github.sha }}
+          restore-keys: |
+            lime-${{ runner.os }}-${{ runner.arch }}-${{ steps.rust-cache.outputs.version }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', 'vendor/**') }}-
+
       - name: Check formatting
         run: cargo fmt --check
 
-      - name: Run Clippy
-        run: cargo clippy --locked --target ${{ env.RUST_TARGET }} -- -D warnings
+      - name: Run Clippy including test targets
+        run: cargo clippy --all-targets --locked --target ${{ env.RUST_TARGET }} -- -D warnings
 
-      - name: Run tests
+      - name: Run the safety suite and regression tests
         run: cargo test --locked --target ${{ env.RUST_TARGET }}
 
       - name: Build release executable
         run: cargo build --release --locked --target ${{ env.RUST_TARGET }}
+
+      - name: Test the release headless PDF worker
+        run: python3 scripts/check-pdf-worker.py --binary target/${{ env.RUST_TARGET }}/release/lime.exe
 
       - name: Verify the executable icon and manifest
         shell: pwsh

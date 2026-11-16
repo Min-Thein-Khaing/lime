@@ -4,14 +4,16 @@ These small fixtures are authored for Lime and contain no external artwork or
 font files. `geometry-fonts-transparency-images.pdf` exercises CropBox, 90° page
 rotation, Helvetica text, an embedded Type 3 glyph, half-opacity vector artwork,
 and a 2×2 RGB image. The malformed/truncated and invalid-password encrypted
-fixtures must return errors. Tests run in the shared macOS/Windows Rust suite;
-this does not claim native Windows or visual PDF QA on this machine.
+fixtures must return errors. The real headless worker script exercises these
+fixtures in each release workflow; this does not claim native or visual PDF QA.
 
-The **PDF checks** GitHub Actions workflow runs the PDF Rust tests and the real
-headless worker protocol on macOS and Windows. To run the same checks locally:
+The optional **PDF diagnostics** workflow runs worker cancellation/deadline safety
+tests and the real headless worker protocol on macOS and Windows. Release
+workflows already check their release worker, so this is not an additional
+release gate. To run focused diagnostics locally:
 
 ```sh
-cargo test --locked pdf
+cargo test --locked pdf::worker::tests
 cargo build --locked
 python3 scripts/check-pdf-worker.py --binary target/debug/lime
 ```

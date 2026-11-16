@@ -4,7 +4,7 @@ use crate::document::{Document, DocumentContent, FileFormat};
 use anyhow::{Context, Result, ensure};
 use std::{
     fs::{self, File},
-    io::Write,
+    io::{Read, Write},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -13,6 +13,53 @@ use std::{
 };
 
 const DISK_BUDGET: u64 = 1024 * 1024 * 1024;
+
+#[derive(serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+struct ReportedFailure {
+    bytes: u64,
+    modified: (u64, u32),
+    error: String,
+}
+
+// Retry preserved copies on later launches, but only announce an unchanged
+// failure once. The marker is separate from the project and its text sidecar.
+fn should_report_failure(snapshot: &Path, error: &anyhow::Error) -> bool {
+    let Ok(metadata) = snapshot.metadata() else {
+        return true;
+    };
+    let Some(modified) = metadata
+        .modified()
+        .ok()
+        .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+    else {
+        return true;
+    };
+    let failure = ReportedFailure {
+        bytes: metadata.len(),
+        modified: (modified.as_secs(), modified.subsec_nanos()),
+        error: format!("{error:#}"),
+    };
+    let marker = snapshot.with_extension("warning.json");
+    let previous = File::open(&marker)
+        .ok()
+        .and_then(|file| serde_json::from_reader::<_, ReportedFailure>(file.take(16 * 1024)).ok());
+    if previous.as_ref() == Some(&failure) {
+        return false;
+    }
+    // Failure to remember a warning must never affect the recovery copy.
+    let _ = (|| -> Result<()> {
+        let parent = snapshot
+            .parent()
+            .context("Recovery session directory is unavailable")?;
+        let mut output = tempfile::NamedTempFile::new_in(parent)?;
+        serde_json::to_writer(&mut output, &failure)?;
+        output.flush()?;
+        output.persist(marker).map_err(|error| error.error)?;
+        Ok(())
+    })();
+    true
+}
+
 pub struct Store {
     dir: PathBuf,
     _lease: File,
@@ -90,6 +137,7 @@ impl Store {
                             errors.push(error.to_string());
                             continue;
                         }
+                        let _ = fs::remove_file(snapshot.path().with_extension("warning.json"));
                         recovered_bytes += bytes;
                         let embedded = crate::project::recovery_metadata(&claimed).ok().flatten();
                         let title = embedded
@@ -138,10 +186,14 @@ impl Store {
                             text,
                         });
                     }
-                    Err(error) => errors.push(format!(
-                        "Recovery copy {} could not be opened: {error:#}. The file is preserved.",
-                        snapshot.path().display()
-                    )),
+                    Err(error) => {
+                        if should_report_failure(&snapshot.path(), &error) {
+                            errors.push(format!(
+                                "Recovery copy {} could not be opened automatically: {error:#}. Use File → Open… to try this preserved copy manually.",
+                                snapshot.path().display()
+                            ));
+                        }
+                    }
                 }
             }
         }
@@ -278,9 +330,37 @@ mod tests {
         assert_eq!(errors.len(), 1);
         assert!(errors[0].contains("recovery memory limit"));
         reopened.clean_exit();
+        let preserved = fs::read_dir(&session)
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .find(|path| {
+                path.extension()
+                    .is_some_and(|extension| extension == "lime")
+            })
+            .unwrap();
+        let original = fs::read(&preserved).unwrap();
+        // Restarting with the same failure stays quiet and preserves every byte.
+        for _ in 0..2 {
+            let (retry, documents, errors) = Store::open_with_budget(root.path(), 0).unwrap();
+            assert!(documents.is_empty());
+            assert!(errors.is_empty());
+            assert_eq!(fs::read(&preserved).unwrap(), original);
+            retry.clean_exit();
+        }
+        // A changed copy must announce a new failure rather than inherit silence.
+        let mut changed = original.clone();
+        changed.push(0);
+        fs::write(&preserved, changed).unwrap();
+        let (retry, documents, errors) = Store::open_with_budget(root.path(), 0).unwrap();
+        assert!(documents.is_empty());
+        assert_eq!(errors.len(), 1);
+        retry.clean_exit();
+        fs::write(&preserved, original).unwrap();
+        // Remembered failures never prevent recovery when there is room again.
         let (remaining, documents, errors) = Store::open(root.path()).unwrap();
         assert_eq!(documents.len(), 1);
         assert!(errors.is_empty());
+        assert!(!preserved.with_extension("warning.json").exists());
         remaining.clean_exit();
     }
 }

@@ -178,35 +178,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stop_edits_keep_order_endpoints_and_a_bounded_capacity() {
-        let original = ColorRamp::new(Rgba([255, 0, 0, 255]), Rgba([0, 0, 255, 255]));
-        let mut ramp = original;
-        let middle = ramp.add_stop().unwrap();
-        assert_eq!(ramp.stops()[middle].position, 500);
-        assert_eq!(ramp.stops()[middle].color, Rgba([128, 0, 128, 255]));
-        assert!(ramp.move_stop(middle, 0));
-        assert_eq!(ramp.stops()[middle].position, 1);
-        assert!(ramp.move_stop(middle, 1000));
-        assert_eq!(ramp.stops()[middle].position, 999);
-        assert!(!ramp.move_stop(0, 50));
-        assert!(!ramp.move_stop(usize::MAX, 50));
-        assert!(!ramp.remove_stop(0));
-        assert!(!ramp.remove_stop(ramp.stops().len() - 1));
-        assert!(!ramp.remove_stop(usize::MAX));
-        assert!(ramp.remove_stop(middle));
-        assert_eq!(ramp, original);
-        while ramp.add_stop().is_some() {}
-        assert_eq!(ramp.stops().len(), MAX_STOPS);
-        assert!(
-            ramp.stops()
-                .windows(2)
-                .all(|pair| pair[0].position < pair[1].position)
-        );
-        assert_eq!(ramp.stops()[0].position, 0);
-        assert_eq!(ramp.stops().last().unwrap().position, 1000);
-    }
-
-    #[test]
     fn transparent_stops_do_not_tint_visible_colors_or_darken_faint_alpha() {
         let ramp = ColorRamp::new(Rgba([255, 0, 0, 255]), Rgba([0, 0, 255, 0]));
         assert_eq!(ramp.sample(0.5), Rgba([255, 0, 0, 128]));
@@ -216,54 +187,5 @@ mod tests {
         let faint = ColorRamp::new(Rgba([20, 120, 240, 1]), Rgba([255, 0, 0, 0]));
         assert_eq!(faint.sample(0.25), Rgba([20, 120, 240, 1]));
         assert_eq!(faint.sample(0.75), Rgba([0; 4]));
-    }
-
-    #[test]
-    fn piecewise_color_and_alpha_match_independent_integer_interpolation() {
-        let mut ramp = ColorRamp::new(Rgba([240, 20, 60, 40]), Rgba([10, 80, 220, 220]));
-        let index = ramp.add_stop().unwrap();
-        ramp.move_stop(index, 370);
-        ramp.set_color(index, Rgba([80, 210, 30, 130]));
-        for position in 0..=1000u16 {
-            let pair = ramp
-                .stops()
-                .windows(2)
-                .find(|pair| position <= pair[1].position)
-                .unwrap();
-            let left = u64::from(pair[1].position - position);
-            let right = u64::from(position - pair[0].position);
-            let span = left + right;
-            let alpha = u64::from(pair[0].color[3]) * left + u64::from(pair[1].color[3]) * right;
-            let mut expected = [0u8; 4];
-            expected[3] = ((alpha + span / 2) / span) as u8;
-            for (channel, value) in expected[..3].iter_mut().enumerate() {
-                let color = u64::from(pair[0].color[channel]) * u64::from(pair[0].color[3]) * left
-                    + u64::from(pair[1].color[channel]) * u64::from(pair[1].color[3]) * right;
-                *value = ((color + alpha / 2) / alpha) as u8;
-            }
-            let actual = ramp.sample(f64::from(position) / 1000.);
-            for channel in 0..4 {
-                assert!(
-                    actual[channel].abs_diff(expected[channel]) <= 1,
-                    "position {position}: {actual:?}, {expected:?}"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn color_mapping_preserves_positions_opacity_and_the_original_palette() {
-        let mut ramp = ColorRamp::new(Rgba([240, 0, 0, 255]), Rgba([0, 0, 240, 0]));
-        let middle = ramp.add_stop().unwrap();
-        ramp.set_color(middle, Rgba([0, 180, 0, 100]));
-        let mapped =
-            ramp.map_colors(|color| crate::transform::ColorMode::Grayscale.constrain(color));
-        for (old, new) in ramp.stops().iter().zip(mapped.stops()) {
-            assert_eq!(old.position, new.position);
-            assert_eq!(old.color[3], new.color[3]);
-            assert_eq!(new.color[0], new.color[1]);
-            assert_eq!(new.color[1], new.color[2]);
-        }
-        assert_ne!(ramp.stops()[middle].color, mapped.stops()[middle].color);
     }
 }

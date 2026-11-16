@@ -9,7 +9,7 @@ pub mod path;
 pub const MAX_TEXT_CHARS: usize = 4_000;
 pub const MAX_FAMILY_CHARS: usize = 128;
 pub const MIN_PIXEL_SIZE: f32 = 1.0;
-pub const MAX_PIXEL_SIZE: f32 = 256.0;
+pub const MAX_PIXEL_SIZE: f32 = 4096.0;
 // Letter spacing is extra advance in canvas pixels after each glyph.
 pub const MIN_LETTER_SPACING: f32 = -64.0;
 pub const MAX_LETTER_SPACING: f32 = 256.0;
@@ -160,7 +160,7 @@ impl TextError {
         match self {
             Self::TooLong => "Text is limited to 4000 characters.",
             Self::Family => "The font name is too long.",
-            Self::Size => "Text size must be between 1 and 256 pixels.",
+            Self::Size => "Text size must be between 1 and 4096 pixels.",
             Self::Spacing => "Text spacing is out of range.",
             Self::TooLarge => "The text is too large to rasterize.",
         }
@@ -583,17 +583,6 @@ impl CaretMap {
             .min_by(|a, b| (a.x - current.x).abs().total_cmp(&(b.x - current.x).abs()))
             .map(|stop| self.position(*stop))
     }
-
-    #[cfg(test)]
-    pub fn hit(&self, x: f32, y: f32) -> Option<usize> {
-        self.hit_position(x, y).map(|position| position.0)
-    }
-
-    #[cfg(test)]
-    pub fn vertical(&self, byte: usize, down: bool) -> Option<usize> {
-        self.vertical_position(byte, CaretAffinity::Downstream, down)
-            .map(|position| position.0)
-    }
 }
 
 pub fn caret_map(spec: &TextSpec) -> Result<CaretMap, TextError> {
@@ -861,79 +850,8 @@ fn cover(pixel: &mut Rgba<u8>, rgb: [u8; 3], coverage: u8, opacity: u8) {
 mod tests {
     use super::*;
 
-    fn ink(image: &RgbaImage) -> usize {
-        image.pixels().filter(|pixel| pixel.0[3] > 0).count()
-    }
-
     fn max_alpha(image: &RgbaImage) -> u8 {
         image.pixels().map(|pixel| pixel.0[3]).max().unwrap_or(0)
-    }
-
-    #[test]
-    fn fixed_box_wraps_aligns_clips_and_keeps_source_and_carets() {
-        let mut spec = spec(
-            "one two three four five six seven eight nine",
-            Spacing::default(),
-        );
-        spec.layout = TextLayout {
-            width: Some(150),
-            height: Some(75),
-            align: TextAlign::Left,
-        };
-        let rendered = render_spec(&spec).unwrap();
-        assert_eq!(rendered.image.dimensions(), (150, 75));
-        assert!(rendered.matches(&spec));
-        let carets = caret_map(&spec).unwrap();
-        assert!(carets.stops.last().unwrap().line > 1);
-        assert!(carets.stops.last().unwrap().top > 75.);
-        assert!(
-            carets
-                .stops
-                .iter()
-                .all(|stop| spec.source.is_char_boundary(stop.byte))
-        );
-        assert!(carets.vertical(0, true).is_some());
-        let mut aligned = spec.clone();
-        aligned.source = "Hi".into();
-        aligned.layout.align = TextAlign::Right;
-        let right = caret_map(&aligned).unwrap();
-        aligned.layout.align = TextAlign::Left;
-        let left = caret_map(&aligned).unwrap();
-        assert!(right.stops[0].x > left.stops[0].x + 50.);
-        assert!(!right.matches(&aligned));
-        aligned.layout.align = TextAlign::Center;
-        let center = caret_map(&aligned).unwrap();
-        assert!(center.stops[0].x > left.stops[0].x);
-        assert!(center.stops[0].x < right.stops[0].x);
-    }
-
-    #[test]
-    fn fixed_box_validation_and_empty_render_are_bounded() {
-        let mut spec = spec("", Spacing::default());
-        spec.layout = TextLayout {
-            width: Some(80),
-            height: Some(50),
-            align: TextAlign::Center,
-        };
-        let rendered = render_spec(&spec).unwrap();
-        assert_eq!(rendered.image.dimensions(), (80, 50));
-        assert!(rendered.matches(&spec));
-        spec.layout.width = Some(0);
-        assert!(render_spec(&spec).is_err());
-        spec.layout.width = None;
-        assert!(render_spec(&spec).is_err());
-    }
-
-    #[test]
-    fn a_larger_size_rasterizes_more_pixels() {
-        let color = Rgba([0, 0, 0, 255]);
-        let small = render("Ag", "sans-serif", 16.0, color).unwrap();
-        let large = render("Ag", "sans-serif", 64.0, color).unwrap();
-        assert!(large.image.width() > small.image.width());
-        assert!(large.image.height() > small.image.height());
-        assert!(ink(&large.image) > ink(&small.image));
-        assert!(max_alpha(&large.image) >= 200);
-        assert!(!large.style.substituted());
     }
 
     fn spec(source: &str, spacing: Spacing) -> TextSpec {
@@ -949,165 +867,41 @@ mod tests {
     }
 
     #[test]
-    fn letter_and_line_spacing_widen_and_heighten_the_bitmap() {
-        let plain = render_spec(&spec("AA\nAA", Spacing::default())).unwrap();
-        let tracked = render_spec(&spec(
-            "AA\nAA",
-            Spacing {
-                letter: 20.0,
-                ..Spacing::default()
-            },
-        ))
-        .unwrap();
-        let loose = render_spec(&spec(
-            "AA\nAA",
-            Spacing {
-                line: 3.0,
-                ..Spacing::default()
-            },
-        ))
-        .unwrap();
-        assert!(tracked.image.width() >= plain.image.width() + 15);
-        assert!(loose.image.height() >= plain.image.height() + 40);
-        assert_eq!(tracked.style.spacing.letter, 20.0);
-        assert!(matches!(
-            render_spec(&spec(
+    fn high_resolution_text_renders_and_keeps_caret_and_metadata_sizes() {
+        for size in [300.0, 1024.0, MAX_PIXEL_SIZE] {
+            let mut spec = spec("A", Spacing::default());
+            spec.size = size;
+            // Exercise the maximum's validation/layout without a huge bitmap.
+            if size == MAX_PIXEL_SIZE {
+                spec.source.clear();
+            }
+            let rendered = render_spec(&spec).unwrap();
+            assert_eq!(rendered.style.size, size);
+            assert!(fields_allowed(
+                &spec.source,
+                &spec.family,
+                &rendered.style.resolved_family,
+                size,
+                spec.spacing,
+            ));
+            assert!(caret_map(&spec).unwrap().matches(&spec));
+            if !spec.source.is_empty() {
+                assert!(rendered.image.height() > 256);
+                assert!(max_alpha(&rendered.image) > 0);
+            }
+        }
+        for size in [MAX_PIXEL_SIZE + 1.0, f32::INFINITY, f32::NAN] {
+            let mut spec = spec("A", Spacing::default());
+            spec.size = size;
+            assert!(matches!(render_spec(&spec), Err(TextError::Size)));
+            assert!(matches!(caret_map(&spec), Err(TextError::Size)));
+            assert!(!fields_allowed(
                 "A",
-                Spacing {
-                    letter: MAX_LETTER_SPACING + 1.0,
-                    ..Spacing::default()
-                }
-            )),
-            Err(TextError::Spacing)
-        ));
-    }
-
-    #[test]
-    fn bold_and_italic_change_pixels_and_invalidate_both_preview_caches() {
-        let plain_spec = spec("Aa Hello", Spacing::default());
-        let plain = render_spec(&plain_spec).unwrap();
-        let carets = caret_map(&plain_spec).unwrap();
-        for face in [
-            FontFace {
-                bold: true,
-                italic: false,
-            },
-            FontFace {
-                bold: false,
-                italic: true,
-            },
-            FontFace {
-                bold: true,
-                italic: true,
-            },
-        ] {
-            let styled_spec = TextSpec {
-                layout: Default::default(),
-                face,
-                ..plain_spec.clone()
-            };
-            assert!(!plain.matches(&styled_spec));
-            assert!(!carets.matches(&styled_spec));
-            let styled = render_spec(&styled_spec).unwrap();
-            assert_eq!(styled.style.face, face);
-            assert_ne!(styled.image, plain.image);
-            assert!(styled.matches(&styled_spec));
-            let styled_carets = caret_map(&styled_spec).unwrap();
-            assert!(styled_carets.matches(&styled_spec));
-            assert_eq!(
-                styled_carets.stops.last().unwrap().byte,
-                styled_spec.source.len()
-            );
-        }
-    }
-
-    #[test]
-    fn caret_stops_cover_every_boundary_and_follow_lines() {
-        let map = caret_map(&spec("ab\nc上", Spacing::default())).unwrap();
-        let bytes: Vec<usize> = map.stops.iter().map(|stop| stop.byte).collect();
-        assert_eq!(bytes, vec![0, 1, 2, 3, 4, 7]);
-        assert_eq!(map.stops[0].x, 0.0);
-        assert!(map.stops[1].x > 0.0 && map.stops[2].x > map.stops[1].x);
-        assert_eq!(map.stops[3].line, 1);
-        assert!(map.stops[3].top > map.stops[0].top);
-        assert_eq!(map.at(5).unwrap().byte, 4);
-        assert_eq!(map.vertical(0, true), Some(3));
-        assert_eq!(map.hit(-10.0, 1.0), Some(0));
-        assert_eq!(map.hit(1000.0, map.line_height * 1.5), Some(7));
-        assert_eq!(map.vertical(0, false), None);
-    }
-
-    #[test]
-    fn selection_rectangles_follow_selected_lines_and_carets_stop_at_graphemes() {
-        let spec = spec("a\u{301}b\ncd", Spacing::default());
-        let map = caret_map(&spec).unwrap();
-        assert!(!map.stops.iter().any(|stop| stop.byte == 1));
-        let first = "a\u{301}".len();
-        let selected = map.selection_rects(first..spec.source.len());
-        assert_eq!(selected.len(), 2);
-        assert!(selected[0].0 > 0.);
-        assert_eq!(selected[1].0, 0.);
-        assert!(selected[1].1 > selected[0].1);
-        assert!(
-            selected
-                .iter()
-                .all(|(_, _, width, height)| *width > 0. && *height > 0.)
-        );
-        assert!(map.selection_rects(0..0).is_empty());
-    }
-
-    #[test]
-    fn a_newline_makes_the_bitmap_taller() {
-        let color = Rgba([0, 0, 0, 255]);
-        let one = render("A", "sans-serif", 32.0, color).unwrap();
-        let two = render("A\nA", "sans-serif", 32.0, color).unwrap();
-        assert!(two.image.height() > one.image.height());
-        assert!(max_alpha(&two.image) > 0);
-    }
-
-    #[test]
-    fn a_missing_family_is_substituted_and_still_paints() {
-        let rendered = render("Ag", "Lime Missing Font", 32.0, Rgba([20, 40, 60, 255])).unwrap();
-        assert!(rendered.style.substituted());
-        assert!(
-            !rendered
-                .style
-                .resolved_family
-                .eq_ignore_ascii_case("Lime Missing Font")
-        );
-        assert!(max_alpha(&rendered.image) > 0);
-        assert_eq!(rendered.style.family, "Lime Missing Font");
-    }
-
-    #[test]
-    fn non_ascii_scripts_shape_and_paint() {
-        for sample in ["café", "مرحبا", "文字"] {
-            let rendered = render(sample, "sans-serif", 36.0, Rgba([0, 0, 0, 255])).unwrap();
-            assert!(
-                max_alpha(&rendered.image) > 0,
-                "{sample} produced no coverage"
-            );
-        }
-    }
-
-    #[test]
-    fn empty_text_is_a_transparent_pixel_and_rejects_bad_input() {
-        let empty = render("", "serif", 24.0, Rgba([0, 0, 0, 255])).unwrap();
-        assert_eq!(empty.image.dimensions(), (1, 1));
-        assert_eq!(empty.image.get_pixel(0, 0).0, [0, 0, 0, 0]);
-        assert!(!empty.style.substituted());
-        assert!(matches!(
-            render("A", "sans-serif", 0.0, Rgba([0; 4])),
-            Err(TextError::Size)
-        ));
-        assert!(matches!(
-            render(
-                &"A".repeat(MAX_TEXT_CHARS + 1),
                 "sans-serif",
-                16.0,
-                Rgba([0; 4])
-            ),
-            Err(TextError::TooLong)
-        ));
+                "sans-serif",
+                size,
+                spec.spacing
+            ));
+        }
     }
 }

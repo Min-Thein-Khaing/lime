@@ -11,16 +11,16 @@ Layers, painting, selections, text, and effects in a workspace that puts your ca
 
 ## Download
 
-**Lime 1.2.2** · [Release notes](https://github.com/eimg/lime/releases/tag/v1.2.2)
+**Lime 1.2.3** · [Release notes](https://github.com/eimg/lime/releases/tag/v1.2.3)
 
 | Platform | Download | Install |
 | --- | --- | --- |
-| Windows x64 | [EXE](https://github.com/eimg/lime/releases/download/v1.2.2/Lime-1.2.2-windows-x64.exe) | Download and run. No installer. |
-| macOS (Apple silicon) | [DMG](https://github.com/eimg/lime/releases/download/v1.2.2/Lime-1.2.2.dmg) | Open and drag Lime to Applications. |
-| Linux x86_64 | [tar.gz](https://github.com/eimg/lime/releases/download/v1.2.2/Lime-1.2.2-linux-x86_64.tar.gz) | Extract and run `./lime`. |
-| Linux ARM64 | [tar.gz](https://github.com/eimg/lime/releases/download/v1.2.2/Lime-1.2.2-linux-aarch64.tar.gz) | Extract and run `./lime`. |
+| Windows x64 | [EXE](https://github.com/eimg/lime/releases/download/v1.2.3/Lime-1.2.3-windows-x64.exe) | Download and run. No installer. |
+| macOS (Apple silicon) | [DMG](https://github.com/eimg/lime/releases/download/v1.2.3/Lime-1.2.3.dmg) | Open and drag Lime to Applications. |
+| Linux x86_64 | [tar.gz](https://github.com/eimg/lime/releases/download/v1.2.3/Lime-1.2.3-linux-x86_64.tar.gz) | Extract and run `./lime`. |
+| Linux ARM64 | [tar.gz](https://github.com/eimg/lime/releases/download/v1.2.3/Lime-1.2.3-linux-aarch64.tar.gz) | Extract and run `./lime`. |
 
-[SHA-256 checksums](https://github.com/eimg/lime/releases/download/v1.2.2/SHA256SUMS)
+[SHA-256 checksums](https://github.com/eimg/lime/releases/download/v1.2.3/SHA256SUMS)
 
 Windows requires Windows 10 or later, DirectX, and the Microsoft Visual C++
 2015–2022 x64 runtime. Linux requires glibc 2.35 or newer, a working Vulkan driver,
@@ -37,13 +37,15 @@ Windows downloads are unsigned. The macOS app is Developer ID signed and notariz
 - **Selections and transforms** — rectangle, oval, freehand, magic wand, crop, scale, rotate, and perspective.
 - **Painting** — pencil, brush, eraser, clone stamp, gradients, and bucket fill.
   Per-tool settings and recent colors survive app restarts.
-- **Text and paths** — editable text, font controls, wrapping, and editable vector paths.
+- **Text and paths** — editable text with sizes up to 4,096 pixels, font controls,
+  wrapping, and editable vector paths.
   Select letter shapes with Alpha to Selection, or preview and adjust text along
   a path while keeping the original text.
 - **Color and effects** — levels, curves, blur, sharpen, drop shadows, and editable layer effects.
   Drop shadows and outside strokes work on editable text; later text edits leave
   those effect layers unchanged.
 - **PDF and recovery** — import selected PDF pages, export a flattened PDF, and recover interrupted work.
+  Preserved recovery copies retry at startup; an unchanged failure warns once.
 
 ## Getting started
 
@@ -57,6 +59,9 @@ Fold secondary option sections with the mouse or keyboard to leave more room for
 their headers summarize active settings. Oval Select uses **1:1** for circles.
 Aspect-ratio choices also reshape the current selection or crop box.
 Typed numeric edits finish before Save and layer menu commands.
+Delete/Backspace clears the selected area of the active raster layer to transparency.
+Move uses a four-arrow cursor and always moves the active layer.
+New text appears above all layers, regardless of the selected layer.
 Layer → Transform and the toolbox use the same Scale Layer, Rotate, Flip, and
 Perspective tools. Reselecting an active transform keeps its preview.
 Use Edit → **Stroke Path…** or **Stroke Selection…** to choose

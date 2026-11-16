@@ -2,8 +2,8 @@
 title: "Keyboard Shortcuts"
 description: "Platform modifier၊ Tools key၊ Canvas action နှင့် Text ရိုက်စဉ် ကွာခြားချက်များ။"
 translationKey: reference/shortcuts
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ဤစာမျက်နှာရှိ **Primary** သည် macOS တွင် **Cmd**၊ Windows/Linux တွင် **Ctrl** ကို ဆိုလိုသည်။ Workspace တွင် Focus ရှိမှ Tools ၏ Letter key များကို သုံးနိုင်သည်။ Field သို့မဟုတ် Text Layer တွင် စာရိုက်နေလျှင် ထို Letter များကို Text အဖြစ်သာ ထည့်သည်။
@@ -40,6 +40,7 @@ translatedRevision: "1.2.2-guide-1"
 | Clone Stamp / Clone Source ရွေးရန် | Shift+C / Alt-click |
 | Brush သေး / ကြီး | [ / ] |
 | Select All / Select None / Invert Selection | Primary+A / Primary+Shift+A / Primary+Shift+I |
+| ရွေးထားသော Pixel များကို Transparent ဖြစ်အောင် ဖျက်ရန် | Delete / Backspace |
 | Selection ပေါင်း / နုတ် / ထပ်ရာယူ | ရွေးနေစဉ် Shift / Control / Shift+Control |
 | Foreground နှင့် Background လဲရန် | X |
 
@@ -61,6 +62,8 @@ Pencil၊ Brush၊ Blur Brush နှင့် Sharpen Brush တွင် Letter 
 Canvas ပေါ် Return က Crop/Gradient/Transform Preview ကို Apply လုပ်သည်၊ သို့မဟုတ် Free Select/Path ကို ပိတ်သည်။ Escape က ထို Preview များကို Cancel လုပ်သည်။ Numeric field အတွင်း Return က Field edit ကို အဆုံးသတ်ပြီး Escape က ယခင်တန်ဖိုး ပြန်ထားသည်။
 
 Text တွင် Return က စာကြောင်းထည့်သည်။ Escape သို့မဟုတ် Primary+Enter က စာရိုက်မှုကို Commit လုပ်သည်။ Undo က Image History မတိုင်မီ စာရိုက်မှုကို ပြန်ယူသည်။ Focus ရှိသော Sidebar toggle တွင် Return/Space က Sidebar ခေါက်ပေးသည်။ Tool Options section header တွင် Return/Space က ထို Section ကို ဖြန့်/ခေါက်ပေးသည်။
+
+Field သို့မဟုတ် Text Layer တွင် စာရိုက်နေစဉ် Delete/Backspace က စာလုံးများကို ဖျက်သည်။ Path Active ဖြစ်လျှင် Pixel များအစား Anchor များကို ဖျက်သည်။ အခြားအချိန်တွင် Active Raster Layer ကို **Edit → Clear to Transparency** လုပ်သည်။ Selection ကန့်သတ်ချက်မရှိလျှင် Layer တစ်ခုလုံးကို ဖျက်သည်။ Alpha Lock ဖွင့်ထားသော Pixel များကို မဖျက်ပါ။
 
 ## ဆက်ဖတ်ရန် {#related}
 

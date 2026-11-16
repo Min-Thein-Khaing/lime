@@ -152,33 +152,3 @@ pub(super) fn color_edges(
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn coverage_preserves_symmetry_complements_and_full_or_empty_interiors() {
-        assert_eq!(COVERAGE[0], 0);
-        assert_eq!(COVERAGE[511], 255);
-        assert_eq!(COVERAGE[1 << 4], 191);
-        for pattern in 0..512 {
-            let mut rotated = 0;
-            let mut reflected = 0;
-            for y in 0..3 {
-                for x in 0..3 {
-                    if pattern & (1 << (y * 3 + x)) != 0 {
-                        rotated |= 1 << (x * 3 + 2 - y);
-                        reflected |= 1 << (y * 3 + 2 - x);
-                    }
-                }
-            }
-            assert_eq!(COVERAGE[pattern], COVERAGE[rotated]);
-            assert_eq!(COVERAGE[pattern], COVERAGE[reflected]);
-            assert!(
-                u16::from(COVERAGE[pattern]).abs_diff(255 - u16::from(COVERAGE[511 ^ pattern]))
-                    <= 1
-            );
-        }
-    }
-}

@@ -2,11 +2,13 @@
 title: "Selection Tools"
 description: "Rectangle၊ Oval၊ Free Select နှင့် Magic Wand တို့၏ Settings နှင့် အသုံးပြုပုံ။"
 translationKey: reference/selection
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 Selection က ပုံဆွဲခြင်း၊ Fill၊ Clear နှင့် Effects အများအပြားကို ကန့်သတ်ပေးသည်။ Selection က Active Layer မဟုတ်ဘဲ Canvas နှင့် သက်ဆိုင်သည်။ Layer ပြောင်းလည်း Selection နေရာမပြောင်းပါ။
+
+Active မြင်ရသော Raster Layer ၏ ရွေးထားသောနေရာကို Transparent ဖြစ်အောင် **Delete** သို့မဟုတ် **Backspace** နှိပ်ပါ၊ သို့မဟုတ် **Edit → Clear to Transparency** သုံးပါ။ Soft edge များကို Coverage အချိုးအတိုင်း ဖျက်သည်။ Selection ကန့်သတ်ချက်မရှိလျှင် Layer တစ်ခုလုံးကို ဖျက်သည်။ **Undo** ဖြင့် ပြန်ယူနိုင်သည်။ Raster Layer အားလုံးတွင် Transparency သုံးနိုင်သည်။ Alpha Lock က Clear ကို တားသည်။ Editable Text ၏ Pixel များကို ဖျက်ရန် အရင် Rasterize လုပ်ပါ။
 
 ## Tools ရွေးရန် {#tools}
 

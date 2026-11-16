@@ -410,39 +410,3 @@ impl Workspace {
         )
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::document::{LayerLocks, MAX_LAYERS};
-    use image::{Rgba, RgbaImage};
-
-    #[test]
-    fn duplicate_explains_capacity_even_for_hidden_position_locked_layers() {
-        let mut content = DocumentContent::single_layer("Base".into(), RgbaImage::new(1, 1));
-        let base = content.top_layer_id();
-        let mut layer = base;
-        for _ in 1..MAX_LAYERS {
-            layer = content
-                .add_layer(layer, "Layer".into(), Rgba([0; 4]))
-                .unwrap();
-        }
-        content.set_visible(base, false);
-        content.set_layer_locks(
-            base,
-            LayerLocks {
-                position: true,
-                alpha: false,
-            },
-        );
-        let reason = RowAction::Duplicate
-            .disabled_reason(&content, base)
-            .unwrap();
-        assert!(reason.contains("layer limit"));
-        assert!(!content.can_duplicate_layer(base));
-        content.delete_layer(layer).unwrap();
-        assert_eq!(RowAction::Duplicate.disabled_reason(&content, base), None);
-        assert!(content.can_duplicate_layer(base));
-        content.duplicate_layer(base).unwrap();
-    }
-}

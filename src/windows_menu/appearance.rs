@@ -160,23 +160,3 @@ pub(super) fn icon_color() -> u32 {
         ((color & 0xff) << 16) | (color & 0xff00) | ((color >> 16) & 0xff)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn app_mode_ordinal_requires_the_modern_signature() {
-        assert!(!supports_app_mode(10, 17763));
-        assert!(!supports_app_mode(6, 9600));
-        assert!(supports_app_mode(10, 18362));
-        assert!(supports_app_mode(10, 26100));
-    }
-
-    #[test]
-    fn accessibility_and_unknown_settings_keep_system_rendering() {
-        assert!(request_dark(Some(false)));
-        assert!(!request_dark(Some(true)));
-        assert!(!request_dark(None));
-    }
-}

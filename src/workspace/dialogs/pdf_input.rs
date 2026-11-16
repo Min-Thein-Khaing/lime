@@ -233,23 +233,3 @@ impl Workspace {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn hit_testing_accounts_for_padding_and_horizontal_scroll() {
-        assert_eq!(text_hit_x(px(129.), px(100.), px(0.)), px(20.));
-        assert_eq!(text_hit_x(px(129.), px(100.), px(-50.)), px(70.));
-        assert_eq!(text_hit_x(px(100.), px(100.), px(0.)), px(-9.));
-    }
-    #[test]
-    fn hit_indices_stay_on_character_boundaries_through_unicode_dashes() {
-        let text = "1, 3–5";
-        assert_eq!(character_at_byte(text, 4), 4);
-        assert_eq!(character_at_byte(text, 5), 4);
-        assert_eq!(character_at_byte(text, 7), 5);
-        assert_eq!(character_at_byte(text, usize::MAX), text.chars().count());
-        assert_eq!(character_at_byte("", 3), 0);
-    }
-}

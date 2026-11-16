@@ -141,7 +141,11 @@ beside `gradients.json`, outside project data/history. Swap and Reset persist;
 Reset leaves recents intact. Gradient alpha stays separate from RGB memory.
 Rectangle, oval, circle,
 freehand or polygon, and wand selections limit fill and Clear to Transparency,
-and Crop to Selection uses the selection bounds. Rectangle Select and Oval Select
+whose Delete/Backspace shortcuts clear the active visible, alpha-unlocked raster
+layer through the same undoable edit. With no selection restriction, they clear
+the whole layer. Text/field editing and Path anchor deletion retain their keys.
+All raster layers support alpha; clearing never substitutes a background fill.
+Crop to Selection uses the selection bounds. Rectangle Select and Oval Select
 are separate tools. Oval Select uses the shared 1:1 aspect ratio for an exact circle, and
 Rectangle Select has a corner radius control with minus and plus buttons, and
 the X/Y and Width/Height fields accept typed values for editable geometric
@@ -197,7 +201,9 @@ selection background job on completion, never on each pointer update. Feathered
 results use the existing coverage-mask representation and its editing limits.
 Feather uses a fixed square averaging kernel with zero coverage outside the
 canvas, including for bounded Full selections; Unrestricted stays unrestricted.
-Move repositions the active layer, and its tool options
+Move uses a four-arrow cursor centered at the pointer without a crosshair and repositions the active
+layer regardless of the pointer target (guide grabs retain their own cursors).
+Its tool options
 align it to any canvas edge or center it with icon buttons. View → Toggle
 Layer Boundary shows a global subtle outline that follows the active layer.
 Move's signed X/Y fields preview a position and commit on Return or leaving the
@@ -482,8 +488,14 @@ tab, layer, generation, and selected path before applying. Both menu and panel
 use the same stroke engine/preferences; the panel's Stroke remains immediate.
 Menu actions remain available at zero stored opacity so it can be changed. The contour stays in canvas coordinates, and the
 brush is not clipped to it. Text (`T`) edits text in place with a caret.
+Text size accepts 1–4096 image pixels through a shared limit used by numeric
+editing, rendering, caret layout, personal defaults, and project validation.
+The existing raster dimensions and memory admission checks still apply.
 A click on empty canvas starts new text, a click on a visible text layer opens
-it, and a click inside the current text moves the caret. A click within
+it, and a click inside the current text moves the caret. New text always inserts
+above the topmost layer, regardless of the active layer. Live previews, including
+blend-mode compositing, commit, and restored uncommitted recovery drafts use the
+same insertion point. Editing existing text preserves its layer order. A click within
 a few screen points of a text box still edits that text. A dashed frame marks
 the text being edited, and the caret blinks. Typing, Return, the
 arrow keys, and the text clipboard edit the draft and show it on the canvas at
@@ -767,8 +779,8 @@ document is a single plain layer without paths, guides, or editable text.
   off-canvas pixels; radius and source samples scale for a reduced preview.
   Subpixel blur/sharpen radii leave the original preview unchanged. Shadows
   sample the source region shifted by their offset and composite below the source,
-  independently of selection/source-layer opacity. Full-resolution preview tests
-  compare these paths to real commits; larger-image filter previews are approximate.
+  independently of selection/source-layer opacity. Full-resolution previews
+  follow commit composition; larger-image filter previews are approximate.
   `EffectImages` keeps a checker-backed Before/After pair. Replaced, canceled,
   and stale pairs release both GPUI images. Layout/screen-scale changes replace
   the immutable preview snapshot and invalidate earlier jobs through the existing
@@ -1032,7 +1044,7 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   Pending text commits before resolving the layer for a slider opacity change.
   The opacity dialog uses the same commit path. Layer thumbnails keep the layer's
   aspect ratio and draw their checker only inside that area. The preview is
-  display-only until the pointer is released. Move's crosshair has a four-arrow badge, and
+  display-only until the pointer is released. Move uses a centered four-arrow cursor without a crosshair, and
   its tool options align the layer to canvas edges or center it with icon
   buttons. Move's Snapping disclosure starts collapsed, retains its persistent
   state, shows the active snap modes while folded, and never changes settings
@@ -1211,46 +1223,81 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
 
 ## Build and check
 
-From the repository root, use a recent Rust toolchain and Xcode. Run
-`cargo fmt --check`, `cargo clippy --locked -- -D warnings`, and
-`cargo test --locked`. Keep `Cargo.lock` tracked. GPUI on macOS uses
-`font-kit` for text and compiles its Metal shaders at runtime.
+Use a recent Rust toolchain and Xcode on macOS. Keep `Cargo.lock` tracked.
+GPUI on macOS uses `font-kit` for text and compiles its Metal shaders at runtime.
 
-`.github/workflows/macos.yml` runs formatting, Clippy including test targets, the
-full suite, release rendering/stroke/area-preview benchmarks, the release app
-bundle/signature and arm64 checks, isolated signing/notarization failure checks,
-and the bundled executable's headless PDF
-checks on macos-15. All four workflows (macOS, Windows, Linux, and PDF) run only
-through manual `workflow_dispatch` for candidate validation; branch pushes,
-tag pushes, and pull requests do not trigger CI. The app
-artifact is first archived with ditto to preserve executable bits and bundle
-metadata; CI never launches GPUI or Finder and does not create the Finder DMG.
+Testing follows a small permanent safety suite plus focused regression tests.
+The safety floor covers project compatibility and rejected/corrupt input, atomic
+save/export failures, recovery preserving source files and drafts, undo/redo and
+saved revisions, memory admission, and core pixel/alpha/selection calculations.
+`src/safety_tests.rs` holds the few checks spanning persistence, recovery, and
+prepared canvas data; local safety checks stay beside their owning code. Release
+integrity also uses the signing failure checks, executable resource verification,
+and the real PDF worker script. Golden fixtures remain source assets.
 
-`.github/workflows/pdf.yml` runs PDF tests and the actual non-test executable's
-headless worker on macOS and Windows. `scripts/check-pdf-worker.py --binary
-target/debug/lime` (or `lime.exe` on Windows) checks inspection, page selection,
-DPI, transparent/white rendering, bounded thumbnails, and rejected sources and
-requests without initializing GPUI. The unit suite retains kill/reap cancellation
-and deadline coverage. These checks require no interactive UI testing.
+Add a test for a demonstrated regression with a reproducible failure, or for new
+logic whose failure could lose work or corrupt pixels/files. Prefer extending an
+existing relevant case. Exercise the failing behavior and confirm the fix; avoid
+exact UI/menu inventories, implementation-mirroring assertions, and automatic
+per-feature test expansion. Existing feature coverage is not a completeness
+requirement. Retire obsolete or redundant cases when behavior evolves; Git holds
+the removed tests, so do not keep a disabled suite or test archive. Do not set a
+coverage percentage or test-count target.
+
+Choose validation according to the change:
+
+- Documentation: run relevant content checks; website changes use `npm run check`
+  and `npm run build` from `website/`. No Rust rebuild for prose-only changes.
+- Labels/spacing/layout: `cargo fmt --check`, compile the app, and inspect the
+  affected native interaction. Add no automated test solely for appearance.
+- Tool behavior: run the relevant existing tests while iterating, then
+  `cargo clippy --all-targets --locked -- -D warnings` and the affected integration
+  checks. Include callers and shared dependencies, not only edited filenames.
+- Shared pixels, selection, history, persistence, dependencies, or suite changes:
+  run formatting, Clippy including test targets, and `cargo test --locked` once
+  after the final relevant edit. This command runs all safety and regression tests.
+- PDF/packaging: run the relevant checks and the actual executable or bundle
+  checks; candidate workflows validate the affected platforms.
+- Releases: validate the same candidate commit with the macOS, Windows, and
+  Linux workflows (both Linux architectures), plus native smoke review.
+
+A focused run uses `cargo test --locked <module-or-test-name>`; confirm that the
+filter actually ran the intended tests. Filtering reduces execution but still
+compiles the application's test executable. Do not rerun a successful broad check
+without a subsequent relevant edit, failure, or unresolved concern. Report what
+ran and any remaining verification gap. Native visual review is separate from
+headless checks; do not claim it from a passing Rust suite. For a performance
+change, measure the affected path in a release build; the old ignored benchmark
+suite has been removed and no blanket benchmark run is required.
+
+All four workflows remain manual `workflow_dispatch`; pushes, tags, and pull
+requests do not trigger CI. macOS, Windows, and Linux candidate workflows run
+formatting, Clippy including test targets, the safety/regression suite, release
+build/packaging checks, and the release executable's headless PDF worker checks.
+Rust dependency/build caches are separated by OS, architecture, compiler, and
+manifest/lock/vendor inputs; incremental and app artifacts are excluded. macOS
+also checks signing/notarization failure handling and the bundle's arm64
+architecture. Its app archive uses ditto to preserve executable bits and metadata;
+CI never launches GPUI or Finder and does not create the Finder DMG.
+
+`.github/workflows/pdf.yml` is optional focused diagnostics, not an additional
+release gate. It runs worker kill/reap cancellation/deadline safety tests and the
+actual debug executable's headless worker on macOS and Windows. Locally use
+`scripts/check-pdf-worker.py --binary target/debug/lime` (or the built `lime.exe`
+path on Windows). The script checks inspection, page selection, DPI,
+transparent/white rendering, bounded thumbnails, and rejected sources/requests
+without initializing GPUI. Candidate workflows use their release binary instead.
 
 Keep the package version in `Cargo.toml` and
-`CFBundleShortVersionString` in `macos/Info.plist` in sync; a test checks both.
+`CFBundleShortVersionString` in `macos/Info.plist` in sync; the bundle script checks both.
 
-Run `./scripts/bundle-macos.sh` and open `dist/Lime.app` for native smoke
-checks. `./scripts/package-macos.sh` additionally creates and verifies
-`dist/Lime-<version>.dmg` with an Applications shortcut. Test a valid image,
-a multi-page PDF import with page and DPI choices, and
-an unsupported file, switch and close tabs, and
-try Finder's **Open With** after rebuilding packaging changes. For canvas work,
-test fit, fixed zoom, pan at a zoom that clips the image, and sampling after
-panning. Create an image with custom dimensions, fill and crop it, then save
-and reopen a project and a raster image. Confirm menu availability matches the
-active document, layer, and edit state.
-
-The preview and stroke benchmarks are ignored by default. Run them explicitly
-with `cargo test --release --locked benchmark -- --ignored --nocapture` when
-changing rendering or stroke performance. Benchmark fixtures are generated in
-memory; they are not disposable project fixtures.
+For native smoke review, build with `./scripts/bundle-macos.sh` and open
+`dist/Lime.app`. Use `./scripts/package-macos.sh` when checking the DMG itself.
+Exercise the changed interaction and its Apply/Cancel/undo path as relevant.
+For release review, open a valid image and multi-page PDF, reject an unsupported
+file, switch/close tabs, and create/fill/crop/save/reopen a project and raster
+image. Check fit, fixed zoom, clipped-image pan/sampling, and menu availability.
+Try Finder's Open With when packaging changes.
 
 Keep local build output in `target/` and `dist/`. Use temporary directories
 for test images. Keep machine-specific settings and credentials out of source.
@@ -1331,7 +1378,12 @@ app backups, and project build caches can be removed when cleanup is requested.
   admission, and stale-session recovery. Startup admission uses a conservative
   512 MiB estimate before decoding any PNG payload: decoded storage, full canvas
   and preview, both fine-tile representations with aprons, thumbnails, metadata,
-  and encoded input as decoding scratch. Skipped files stay on disk. Snapshot
+  and encoded input as decoding scratch. Skipped files stay on disk and retry
+  at later startups. A separate atomic `.warning.json` marker remembers the
+  failed copy's byte length, modification time, and error so an unchanged failure
+  warns only once across launches. Changed copies/errors warn again; a successful
+  retry removes the marker. Warning tracking never alters the project or text
+  sidecars; File → Open… remains available for manual recovery. Snapshot
   tracking is per tab and persistent revision plus text source/style/placement;
   selection/caret changes do not rewrite copies. Batch failures stay local to
   their tab, and stale lease results cannot mark a new lease up to date.
@@ -1352,6 +1404,7 @@ app backups, and project build caches can be removed when cleanup is requested.
   with per-monitor verification outstanding. Do not advertise arbitrary working
   spaces, soft proofing, CMYK ICC import, or high-precision editing.
 - `fixtures/pdf/` contains self-authored CropBox/rotation, Helvetica/embedded Type 3,
-  transparency, image, malformed, and encrypted inputs. These tests are in the
-  shared macOS/Windows CI suite. Native display QA remains with the maintainer;
-  candidate CI does not launch the interactive app.
+  transparency, image, malformed, and encrypted inputs. The real worker script
+  exercises these fixtures in all release workflows and optional macOS/Windows
+  PDF diagnostics. Native display QA remains with the maintainer; candidate CI
+  does not launch the interactive app.

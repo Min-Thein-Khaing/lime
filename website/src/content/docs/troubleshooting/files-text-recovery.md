@@ -2,8 +2,8 @@
 title: "Text, export, and recovery problems"
 description: "Handle missing fonts, flattened exports, PDF limits, and interrupted sessions."
 translationKey: troubleshooting/files-text-recovery
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Text looks different or is clipped {#text}
@@ -33,6 +33,8 @@ For a size/memory rejection, reduce DPI or select fewer pages. PDF export create
 After an interrupted session, Lime can reopen separate recovery projects and show a recovery notice. Inspect each recovered tab, then use **Save As…** to choose a destination. Recovery does not overwrite original files or change their saved revisions.
 
 Recovery is periodic, so the final seconds may be missing. Text drafts are included where possible; other unapplied previews are not. If Lime reports a recovery failure, keep the recovered tab open while saving a new copy. Recovery does not replace regular project saves.
+
+If automatic recovery cannot open a copy, Lime preserves it and reports its path. Use **File → Open…** to try that copy manually. Lime retries preserved copies at later startups, but reports the same failure for an unchanged copy only once across launches. A changed copy or a different error can show a new warning.
 
 ## Related guides {#related}
 

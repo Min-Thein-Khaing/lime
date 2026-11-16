@@ -2,8 +2,8 @@
 title: "Text၊ Export နှင့် Recovery ပြဿနာများ"
 description: "Font မရှိခြင်း၊ Flattened Export၊ PDF ကန့်သတ်ချက်နှင့် Session ပြတ်တောက်ခြင်းကို ဖြေရှင်းနည်း။"
 translationKey: troubleshooting/files-text-recovery
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Text ပုံစံကွာခြားခြင်း သို့မဟုတ် ဖြတ်နေခြင်း {#text}
@@ -33,6 +33,8 @@ Size/Memory ကန့်သတ်ချက်ဖြစ်လျှင် DPI လ
 Session ပြတ်တောက်ပြီးနောက် Lime က သီးခြား Recovery Project များကို ပြန်ဖွင့်ပြီး Notice ပြနိုင်သည်။ Recovered Tab တစ်ခုစီ စစ်ပါ။ ထို့နောက် **Save As…** ဖြင့် သိမ်းမည့်နေရာ ရွေးပါ။ Recovery က မူရင်း File ကို မရေးထပ်သကဲ့သို့ Saved revision ကိုလည်း မပြောင်းပါ။
 
 Recovery ကို အချိန်ခြားလုပ်သဖြင့် နောက်ဆုံးစက္ကန့်အနည်းငယ် မပါနိုင်ပါ။ ဖြစ်နိုင်လျှင် Text Draft ပါသော်လည်း အခြားမအတည်ပြုရသေးသော Preview များ မပါပါ။ Recovery Error ပြလျှင် Recovered Tab မပိတ်ဘဲ Copy အသစ် Save လုပ်ပါ။ ပုံမှန် Project Save အစား Recovery ကို မမှီခိုပါနှင့်။
+
+Automatic Recovery က Copy တစ်ခုကို မဖွင့်နိုင်လျှင် Lime က File ကို ထိန်းသိမ်းပြီး Path ကို ပြသည်။ ထို Copy ကို ကိုယ်တိုင်ပြန်ဖွင့်ရန် **File → Open…** သုံးပါ။ နောက်တစ်ကြိမ် App ဖွင့်ချိန်တွင် ထိန်းသိမ်းထားသော Copy များကို ပြန်စမ်းသည်။ မပြောင်းလဲသော Copy တွင် တူညီသော Error ဖြစ်လျှင် App ပြန်ဖွင့်တိုင်း မပြဘဲ တစ်ကြိမ်သာ သတိပေးသည်။ Copy ပြောင်းထားခြင်း သို့မဟုတ် Error မတူခြင်းဖြစ်လျှင် Warning အသစ် ပြနိုင်သည်။
 
 ## ဆက်ဖတ်ရန် {#related}
 
