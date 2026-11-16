@@ -74,9 +74,11 @@ Keep paired Markdown articles, permanent section IDs, and translation revision
 records current when documented behavior changes. `website/src/navigation.mjs`
 is the page inventory; `npm run check` and `npm run build` from `website/` validate
 translation coverage, links, assets, anchors, and language-specific search indexes.
-The independent Guide website workflow checks relevant pull requests and publishes
-only by manual dispatch from `main` with its publish input enabled. App builds and
-release packaging do not depend on Node or website output.
+GitHub Pages serves generated static files from the root of `gh-pages`, without
+a custom publishing workflow. After committing and pushing source changes on
+`main`, `npm run publish:pages` from `website/` builds/checks and publishes that
+output with `.nojekyll`. App builds and release packaging do not depend on Node
+or website output.
 Myanmar guides use plain Burmese instructions with familiar UI/editing terms in
 English, including Tools, Antialias, Feather, Text, Transparency, Signed, and
 Notarized. Omit the Official qualifier and use ပုံဆွဲခြင်း for drawing/painting.

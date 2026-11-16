@@ -110,16 +110,29 @@ height and word wrapping, keyboard focus, image captions, and active page links.
 
 ## GitHub Pages
 
-The intended public addresses are:
+The public addresses are:
 
 - <https://eimg.github.io/lime/>
 - <https://eimg.github.io/lime/mm/>
 
-Select **GitHub Actions** as the repository's Pages source. The **Guide website**
-workflow checks website pull requests. To publish after reviewed changes have
-reached `main`, manually run it from `main` with **publish** enabled. The default
-manual run validates without deploying. It uploads only `website/dist`, leaving
-the desktop app's `dist/` separate. Nothing deploys on an ordinary push.
+GitHub Pages serves the built static files from the root of the `gh-pages`
+branch. There is no custom publishing workflow. The Markdown and site source
+stay on `main`; `gh-pages` contains generated output only.
+
+After reviewing, committing, and pushing source changes to `main`, run from
+`website/`:
+
+```sh
+npm run publish:pages
+```
+
+This builds and checks the guide, then pushes `website/dist` to `gh-pages` with
+a `.nojekyll` file so GitHub serves assets such as `_astro` directly. It uses your
+normal Git credentials and leaves the current source branch in place. The
+desktop app's `dist/` is separate. GitHub Pages picks up the branch update.
+
+The repository's **Settings → Pages** source is **Deploy from a branch**, with
+**gh-pages** and **/ (root)** selected. This setup is needed only once.
 
 Update `site` and `base` in `astro.config.mjs` and the prefix checks if moving to
 a different hosting path. No Sites registration or hosted application service

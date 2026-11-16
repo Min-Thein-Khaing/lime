@@ -13,6 +13,7 @@
     "translations:record": "node scripts/check-content.mjs --record",
     "preview": "astro preview --host 127.0.0.1 --port 4173",
     "preview:stop": "astro preview stop",
+    "publish:pages": "npm run build && gh-pages --dist dist --nojekyll",
     "dev:stop": "astro dev stop"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "cheerio": "1.1.2",
+    "gh-pages": "6.3.0",
     "yaml": "2.9.1"
   }
 }
