@@ -1,0 +1,18 @@
+---
+import DefaultFooter from '@astrojs/starlight/components/Footer.astro';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const my = Astro.url.pathname.startsWith(`${base}/mm/`);
+---
+<DefaultFooter {...Astro.props} />
+<div class="guide-footer" data-pagefind-ignore>
+  <span>{my ? 'Lime 1.2.2 အတွက် လမ်းညွှန်' : 'Guides for Lime 1.2.2'}</span>
+  <nav aria-label={my ? 'အခြားလင့်ခ်များ' : 'More resources'}>
+    <a href={`${base}/${my ? 'mm/' : ''}start/install/`}>{my ? 'Lime ရယူရန်' : 'Get Lime'}</a>
+    <a href="https://github.com/eimg/lime/issues">{my ? 'ပြဿနာတင်ပြရန်' : 'Report a problem'}</a>
+    <a href="https://github.com/eimg/lime">GitHub</a>
+  </nav>
+</div>
+<style>
+  .guide-footer { border-top: 1px solid var(--sl-color-hairline-light); margin-top: 2rem; padding-top: 1rem; color: var(--sl-color-gray-2); font-size: .8rem; display: flex; flex-wrap: wrap; gap: .8rem 1.5rem; justify-content: space-between; }
+  nav { display: flex; gap: 1rem; flex-wrap: wrap; } a { color: inherit; text-underline-offset: .2em; }
+</style>

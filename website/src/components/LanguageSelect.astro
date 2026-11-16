@@ -1,0 +1,28 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const current = Astro.url.pathname.slice(base.length).replace(/^\//, '');
+const my = current.startsWith('mm/');
+const article = current.replace(/^mm\//, '');
+---
+<nav class="languages" aria-label="Language / ဘာသာစကား">
+  <a data-guide-language href={`${base}/${article}`} lang="en" hreflang="en" aria-current={!my ? 'page' : undefined} aria-label="English">EN</a>
+  <span aria-hidden="true">/</span>
+  <a data-guide-language href={`${base}/mm/${article}`} lang="my" hreflang="my" aria-current={my ? 'page' : undefined} aria-label="မြန်မာ">မြန်မာ</a>
+</nav>
+<script>
+  for (const link of document.querySelectorAll<HTMLAnchorElement>('[data-guide-language]')) {
+    link.addEventListener('click', () => {
+      // Use the section being read, rather than an old fragment left in the URL.
+      const headings = [...document.querySelectorAll<HTMLElement>('.sl-markdown-content h2[id]')];
+      const current = headings.filter((heading) => heading.getBoundingClientRect().top <= 160).at(-1);
+      link.hash = current?.id ?? '';
+    });
+  }
+</script>
+<style>
+  .languages { display: flex; gap: .45rem; align-items: center; white-space: nowrap; font-size: .85rem; }
+  a { color: var(--sl-color-gray-2); text-decoration: none; border-radius: .2rem; padding: .25rem .1rem; }
+  a[aria-current] { color: var(--sl-color-white); font-weight: 650; }
+  a:hover { color: var(--sl-color-text-accent); text-decoration: underline; text-underline-offset: .25em; }
+  span { color: var(--sl-color-gray-3); }
+</style>

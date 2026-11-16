@@ -1,0 +1,82 @@
+---
+import { Image } from 'astro:assets';
+import workspace from '../assets/workspace.jpg';
+const { locale = 'en' } = Astro.props;
+const my = locale === 'my';
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const url = (path: string) => `${base}/${my ? 'mm/' : ''}${path}/`;
+const text = (en: string, mm: string) => my ? mm : en;
+const tasks = [
+  ['image/crop', 'Crop an image', 'ပုံကို Crop လုပ်ရန်', 'Choose the part of the image to keep.', 'ပုံထဲမှ သိမ်းထားမည့် အပိုင်းကို ရွေးပါ။'],
+  ['guides/remove-background', 'Remove a background', 'နောက်ခံ ဖယ်ရှားရန်', 'Select a subject and keep transparent edges.', 'လိုသည့်အရာကို ရွေး၍ နောက်ခံကို ဖယ်ရှားပါ။'],
+  ['guides/combine-images', 'Combine images', 'ပုံများ ပေါင်းစပ်ရန်', 'Build a composition with separate layers.', 'Layer များဖြင့် ပုံတစ်ပုံအဖြစ် ပေါင်းစပ်ပါ။'],
+  ['guides/text-effects', 'Add text and an outline', 'Text နှင့် Outline ထည့်ရန်', 'Keep your text editable while adding effects.', 'Text ကို ဆက်ပြင်နိုင်သည့်အတိုင်း Effects ထည့်ပါ။'],
+  ['image/resize', 'Resize an image', 'ပုံကို Resize လုပ်ရန်', 'Choose between scaling pixels and resizing the canvas.', 'ပုံကို Scale လုပ်မလား၊ Canvas size ပြောင်းမလား ရွေးပါ။'],
+  ['reference/files', 'Save and export', 'Save နှင့် Export လုပ်ရန်', 'Keep an editable project and share a finished copy.', 'ပြန်ပြင်နိုင်သည့် Project ကို Save လုပ်ပြီး မျှဝေရန် ပုံကို Export လုပ်ပါ။'],
+];
+---
+<div class="intro">
+  <p class="lead">{text('Practical help for layers, selections, painting, text, and the edits in between.', 'Layer၊ Selection၊ ပုံဆွဲခြင်း၊ Text နှင့် ပုံပြင်ဆင်မှုများအတွက် လက်တွေ့လမ်းညွှန်များ။')}</p>
+  <div class="start-links">
+    <a class="primary" href={url('start/first-edit')}>{text('Make your first edit', 'ပထမဆုံး ပုံပြင်ရန်')} <span aria-hidden="true">↗</span></a>
+    <a href={url('start/install')}>{text('Get Lime', 'Lime ရယူရန်')} <span aria-hidden="true">↓</span></a>
+    <a href={url('start/workspace')}>{text('Explore the workspace', 'Workspace ကို လေ့လာရန်')} <span aria-hidden="true">→</span></a>
+  </div>
+</div>
+<section aria-labelledby="common-tasks">
+  <h2 id="common-tasks">{text('What would you like to edit?', 'ပုံပြင်ဆင်နည်းများ')}</h2>
+  <div class="task-grid">
+    {tasks.map(([path, en, mm, desc, descMy]) => <a class="task" href={url(path)}><span class="task-title">{text(en, mm)} <span aria-hidden="true">↗</span></span><span class="task-description">{text(desc, descMy)}</span></a>)}
+  </div>
+</section>
+<section class="workspace-preview" aria-labelledby="workspace">
+  <h2 id="workspace">{text('Your canvas comes first', 'Canvas အတွက် နေရာပိုရစေရန်')}</h2>
+  <figure>
+    <Image src={workspace} alt={text('Lime showing a skyline image on the canvas, tools on the left, and Tool Options and Layers on the right.', 'Lime တွင် မြို့ရှုခင်းပုံကို Canvas ပေါ်၌ ဖွင့်ထားပြီး ဘယ်ဘက်တွင် Tool များ၊ ညာဘက်တွင် Tool Options နှင့် Layers ကို ပြထားသည်။')} widths={[640, 960, 1400]} sizes="(min-width: 72rem) 800px, 100vw" loading="lazy" />
+    <figcaption>{text('The Lime desktop workspace. Learn where to find tools, layer controls, and canvas navigation.', 'Lime desktop workspace။ Tools၊ Layers နှင့် Canvas controls ရှိသည့်နေရာကို ကြည့်ပါ။')} <a href={url('start/workspace')}>{text('Workspace guide', 'Workspace လမ်းညွှန်')} →</a></figcaption>
+  </figure>
+</section>
+<section class="help-grid" aria-label={text('Learn and troubleshoot', 'လေ့လာရန်နှင့် ပြဿနာအဖြေရှာရန်')}>
+  <div>
+    <h2 id="understand">{text('Understand the essentials', 'အခြေခံများ လေ့လာရန်')}</h2>
+    <ul>
+      <li><a href={url('basics/layers')}>{text('Layers and transparency', 'Layers နှင့် Transparency')}</a></li>
+      <li><a href={url('basics/selections')}>{text('Selections and soft edges', 'Selection၊ Antialias နှင့် Feather')}</a></li>
+      <li><a href={url('basics/masks')}>{text('Hide pixels with a layer mask', 'Layer mask သုံးရန်')}</a></li>
+      <li><a href={url('basics/previews')}>{text('Previews, Apply, and undo', 'Preview၊ Apply နှင့် Undo')}</a></li>
+    </ul>
+  </div>
+  <div>
+    <h2 id="fix-a-problem">{text('Get unstuck', 'ပြဿနာအဖြေရှာရန်')}</h2>
+    <ul>
+      <li><a href={url('troubleshooting/painting')}>{text('Painting or filling changes nothing', 'ပုံဆွဲခြင်း သို့မဟုတ် Fill လုပ်သော်လည်း မပြောင်းလျှင်')}</a></li>
+      <li><a href={url('troubleshooting/moving')}>{text('A layer cannot move or transform', 'Layer ကို ရွှေ့မရ၊ Transform လုပ်မရလျှင်')}</a></li>
+      <li><a href={url('troubleshooting/files-text-recovery')}>{text('Text, export, and recovery problems', 'Text၊ Export နှင့် Recovery ပြဿနာများ')}</a></li>
+      <li><a href={url('reference/shortcuts')}>{text('Find a keyboard shortcut', 'Keyboard Shortcuts ရှာရန်')}</a></li>
+    </ul>
+  </div>
+</section>
+<style>
+  .intro { padding-bottom: 1.5rem; }
+  .lead { max-width: 38rem; margin: .6rem 0 1.5rem; color: var(--sl-color-gray-2); font-size: 1.18rem; }
+  .start-links { display: flex; flex-wrap: wrap; gap: .75rem 1.5rem; align-items: center; }
+  .start-links a { display: inline-flex; align-items: center; gap: .7rem; font-size: .95rem; text-decoration: none; }
+  .primary { background: var(--lime-color-button-bg); color: var(--lime-color-button-text); border-radius: .4rem; padding: .7rem 1rem; }
+  .primary:hover { background: var(--lime-color-button-hover); }
+  section { margin: 1.7rem 0 2.6rem; }
+  h2 { font-size: 1.3rem; margin-bottom: 1rem; letter-spacing: -.015em; }
+  .task-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--sl-color-hairline-light); }
+  .task { padding: 1.2rem .8rem 1.2rem 0; border-bottom: 1px solid var(--sl-color-hairline-light); text-decoration: none; display: grid; gap: .35rem; }
+  .task:nth-child(even) { padding-left: 1.3rem; }
+  .task-title { font-weight: 600; color: var(--sl-color-white); display: flex; gap: .5rem; justify-content: space-between; }
+  .task-title > span { color: var(--sl-color-accent-high); }
+  .task-description { font-size: .9rem; color: var(--sl-color-gray-2); line-height: 1.65; }
+  .task:hover .task-title { color: var(--sl-color-text-accent); }
+  figure { margin: 0; }
+  img { width: 100%; height: auto; border-radius: .6rem; border: 1px solid var(--sl-color-hairline-light); }
+  figcaption { font-size: .85rem; color: var(--sl-color-gray-2); margin-top: .65rem; }
+  .help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; border-top: 1px solid var(--sl-color-hairline-light); padding-top: 1.3rem; }
+  ul { padding-left: 1.15rem; } li { margin: .6rem 0; } a { text-underline-offset: .2em; }
+  :global(html[lang='my']) .task-description { line-height: 1.95; }
+  @media (max-width: 38rem) { .task-grid, .help-grid { grid-template-columns: 1fr; } .task:nth-child(even) { padding-left: 0; } }
+</style>

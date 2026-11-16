@@ -1,0 +1,110 @@
+{
+  "index": {
+    "en": "523a3678003bfdc0545b76fb8b8a18db09396737fe42b91d73405909e8786707",
+    "my": "c0177b057b1f5125540f0eb690e71ddf2f207ffaff431fc9c769571f5249282b"
+  },
+  "start/install": {
+    "en": "ba376db46c4f919a065821e2707da3472c895384776ee69f2c27daf89cde3640",
+    "my": "61943596657803117320c05d998cff38452d74fbde796c188812019de0a77038"
+  },
+  "start/workspace": {
+    "en": "b39d69459decd9130c5339f2c508ad61b69ca4a9340945d6b6e06af95937227f",
+    "my": "1c92ed6e4c1ae4f3656626c087192f1855c911f0c96214be58ee6bdd4b263440"
+  },
+  "start/first-edit": {
+    "en": "42ff0b307dc85b738cba24c8df19549f75378e8e2c19e2ef053fc95c4d420a31",
+    "my": "d0132d0a9518cf24058f1fb20da711c3ed1af28a6841b4051eeab9fe1a25fbaf"
+  },
+  "basics/layers": {
+    "en": "167622c73975ca5b5f266a0c8a10f35c30946e2d6dadeb8ab6bad6f5d7991b87",
+    "my": "a94eb65005fb37fae01f46726fb645f1a9db18ac119ebd5075700003317809d3"
+  },
+  "basics/selections": {
+    "en": "bb5a969df405b6c6ff720ad9e2343586546b4d588f13cd1fbf5bd98bbeb645ad",
+    "my": "9963d9b99e0e27bc5531a8aff67980e7ac32fd07b2e014048439d583841880e0"
+  },
+  "basics/masks": {
+    "en": "44cac43ffa5fe4ca734c47804a41f3dab025e57dc32f73bc9e211aa6a60cbdd0",
+    "my": "d1938fcbae9489446b3fa292dc5c4327575ac795afb9d4d292e93fad442f1c01"
+  },
+  "basics/previews": {
+    "en": "702c8ba69483c81fb3d6ea0af20ea26cf25cbf59e324337130d53eb7dc18a7c3",
+    "my": "faf992c414db957948529c735ba3a0fde08e373e20207142a2bfe783e628577b"
+  },
+  "image/crop": {
+    "en": "db8886c4530e73cda841c7391f9f5b0196b716767a41ab35c28ddd8241b419d3",
+    "my": "6961412ba29a76db492d24a813ad31314bf19ba686885764b8d70efef47b6018"
+  },
+  "image/resize": {
+    "en": "b96379552406338374349b19676d4f9ff0409b4cb8d1aa8008cdaecc601a77e4",
+    "my": "8294e941e5af83cfdb0f272c7957a9ce30f06d813f944d705403de644746cb7a"
+  },
+  "image/import-layers": {
+    "en": "f3176f033ef609f682b4ce54b0b512c62fc24bafb36c78c9223368401b7ca8f5",
+    "my": "cc7e89b99887e84eef630fcd7e3153cb90a816e6c6b56a4e547568fec749e17c"
+  },
+  "image/pdf": {
+    "en": "5a3c2b9ffe0ead936ff38b8b0add079cd13df97f0560a6a828ebb081b1be29cf",
+    "my": "0c2aa3234de874e4f77ed21040b7986da225dbd1c1690a99688eb27d831a54da"
+  },
+  "guides/remove-background": {
+    "en": "248ccdb9c6d76147629af6d2d03881160e02eac5bf055347b93e6e9c1e2b61db",
+    "my": "e12dbd9ef266f2f1ca080117e714df107945f69a701b6d5868faf5e11e3c9d4f"
+  },
+  "guides/combine-images": {
+    "en": "3af570944b6ea14bfe85e58fd9058c8be4ce23e0f2b65771cd54d9d0c4b62070",
+    "my": "c696cffbdfd5f40870feb5319a5ea480abb6ac5b6d196ff2adb321a75ddacd5a"
+  },
+  "guides/paint-retouch": {
+    "en": "3033805cba3788aeb2be3a063a680187514c4491d37e13cad0157b4fd9fe65ce",
+    "my": "8a7e89bf8ba0488136918a38430324b4b57e511ee056b05b94557acf9b39a6e2"
+  },
+  "guides/fills-gradients": {
+    "en": "27b064e2f513e0bf7e34a27de423930369d49c14eba0f79b3dcc3be7a322d2c1",
+    "my": "54c8a99c07ab7b0b71ad68ec7054a9269dfd46d4ac90df3f5a13d9cf6d4fdbed"
+  },
+  "guides/text-effects": {
+    "en": "91ab1ea899fb81915b17866e3e1e5c46cc0e5740e6f8ad0c8e4dd2fa66dcb17d",
+    "my": "b94e15e771ac9dfae6fc24772920a27d5c43f2b5d60e74298f8fb9797ea0926d"
+  },
+  "guides/paths": {
+    "en": "b66b0fb54bb33d3b90494e4879870646b22a331f7e2f9d7029f6387580c9ed27",
+    "my": "5d2b1c7e6a791e0d7c154004ea0eaae104e214759f9f7b6e47a59c9b85e68006"
+  },
+  "reference/selection": {
+    "en": "08b8285cf1a286f16c421cd5d386c3c4ce90c95d9452c64ebf0bdf3d47480b18",
+    "my": "c8ee07495aef299522db21a11a9d617947c5a8e9189784711db01db9a1ef6316"
+  },
+  "reference/painting": {
+    "en": "ee255aafccd10c220e0b7aadc2689a84ab90e32a499eaadefff02f28cdde6333",
+    "my": "d6978a46b10dc1df27b93f5766353c460bb9ce3763d556fe60821f333614a4c8"
+  },
+  "reference/transforms": {
+    "en": "92648fc593e91e04fd19d4d11a5ed232ac6e85b164990c121d3dc3506b4a5ac8",
+    "my": "586891b036abe00a0dcea1d039303c4a592055549964d685c7849f8a640db02c"
+  },
+  "reference/effects": {
+    "en": "17ef5e7d4401ce35856129934a754bc2e332817e3d1d1ce8eb484813f32f6b01",
+    "my": "5e13c97c8f43309affe7e5ff37ca0949350436090213893f75551c2931467f2e"
+  },
+  "reference/files": {
+    "en": "2113a44b84bd0a9e58ac4bca2a4fe2594001e2dacc66dc6ffeeda1f0ce267d5f",
+    "my": "faa83802f30c507a8c8e91cf9161b29554c71f22887b6ce80fca7f7a578fce82"
+  },
+  "reference/shortcuts": {
+    "en": "e6f5a0fc230b791abe93132686489a3eb2bd10848b127c086cfec3fa9eba30b5",
+    "my": "30ef5e029646829e8d8f129bc601bc14ba97b2db03b6aaeea22bda16ba6838bd"
+  },
+  "troubleshooting/painting": {
+    "en": "3c3ab63597bacb397bcddb4078342763ebe6b1109aeb735e5be3901146bf17fb",
+    "my": "ba2a6ed87053a90423b120824eac5395eb3bfbf01e8b2f7812dfd57a98fddef7"
+  },
+  "troubleshooting/moving": {
+    "en": "45af9974a28bc27e100c3cdd16391ae3432437d08c96ca08c7328ba29f33d3da",
+    "my": "654abcd232525928b70218469281efc1a117f1023405e1f9e0fbf4a67cd2d109"
+  },
+  "troubleshooting/files-text-recovery": {
+    "en": "7d1b5fb6f3507188ec4cf0d0faefc64aea805ab37289995fe854bc55a8dc13ff",
+    "my": "36f4525d18bd3234c09c30d2bbbff5651872b4e1df46a1bbc4f4792f5b903013"
+  }
+}

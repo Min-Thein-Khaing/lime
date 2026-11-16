@@ -1,0 +1,38 @@
+---
+title: "Find your way around Lime"
+description: "Find the toolbox, canvas, Tool Options, Layers, Paths, and workspace controls."
+translationKey: "start/workspace"
+sourceRevision: "1.2.2-guide-1"
+translatedRevision: "1.2.2-guide-1"
+---
+
+## Read the workspace {#layout}
+
+![Lime with a night skyline open, tools at the left and Tool Options and Layers at the right.](../../../assets/workspace.jpg)
+
+The screenshot shows Lime's desktop workspace. Panel sizes and the selected tool may differ on your computer.
+
+- **Toolbox, left:** choose an editing tool. The foreground and background color swatches sit at its top.
+- **Canvas, center:** view and edit the image. Each open document has a tab. The checkerboard represents transparency, not a printed background.
+- **Tool Options, right:** adjust the selected tool. Hover its **?** for essential gestures and shortcuts. Fold secondary option sections using their headers.
+- **Layers / Paths, right:** choose the active layer or switch to **Paths** to manage curves. Most pixel edits affect the active layer, even when other layers are visible.
+- **Application menus:** open, save, export, undo, and other commands live in the menus. There is no top editing toolbar.
+
+## Make room for the image {#steps}
+
+1. Resize the docked panels to suit your work, or fold the toolbox.
+2. Choose **View → Toggle Right Sidebar**, use its header button, or press **Cmd/Ctrl+Shift+L** to fold Tool Options and Layers/Paths together.
+3. Use the button on the narrow right rail to reopen them. Finish an active drag before folding; a resting transform preview can remain open.
+4. Hold **Space** and drag to pan. Choose **Zoom** to zoom around a point without changing image pixels.
+
+Lime remembers personal folding choices. Tabs keep their own zoom and pan. A folded sidebar retains the selected Layers/Paths tab and drafts.
+
+## Use the menus {#menus}
+
+On macOS, the menus are in the system menu bar. On Windows, they use the native window menu. Linux has an in-window menu bar: **F10** activates it, arrows navigate, **Enter** chooses, and **Escape** dismisses it. Underlined letters identify menu shortcuts.
+
+## Next steps {#related}
+
+- [Make your first edit](../../start/first-edit/)
+- [Layers and transparency](../../basics/layers/)
+- [Keyboard shortcuts](../../reference/shortcuts/)

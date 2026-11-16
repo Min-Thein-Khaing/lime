@@ -67,7 +67,21 @@ review handoffs belong in Git history rather than separate living documents.
 Keep unrelated work and existing edits intact.
 README.md is a compact user-facing overview and download page. Keep detailed
 tool instructions, build/CI details, validation status, and release preparation
-notes out of it. The UI provides tool help; a dedicated guide website is planned.
+notes out of it. The UI provides tool help; `website/` contains the bilingual user
+guide built with Astro and Starlight. English uses `/lime/`, Myanmar `/lime/mm/`
+with HTML language `my`. See `website/README.md` for local review and publication.
+Keep paired Markdown articles, permanent section IDs, and translation revision
+records current when documented behavior changes. `website/src/navigation.mjs`
+is the page inventory; `npm run check` and `npm run build` from `website/` validate
+translation coverage, links, assets, anchors, and language-specific search indexes.
+The independent Guide website workflow checks relevant pull requests and publishes
+only by manual dispatch from `main` with its publish input enabled. App builds and
+release packaging do not depend on Node or website output.
+Myanmar guides use plain Burmese instructions with familiar UI/editing terms in
+English, including Tools, Antialias, Feather, Text, Transparency, Signed, and
+Notarized. Omit the Official qualifier and use ပုံဆွဲခြင်း for drawing/painting.
+Keep Antialias distinct from Feather. Theme selector labels stay Light, Dark, and
+Auto in both languages. Follow the editorial conventions in `website/README.md`.
 
 ## Menu and tool consistency
 

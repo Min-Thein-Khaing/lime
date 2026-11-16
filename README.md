@@ -5,6 +5,8 @@
 **Lite Image Editor** for Windows x64, macOS Apple silicon, and Linux x86_64/ARM64.
 Layers, painting, selections, text, and effects in a workspace that puts your canvas first.
 
+[User guide](https://eimg.github.io/lime/) · [မြန်မာလမ်းညွှန်](https://eimg.github.io/lime/mm/)
+
 ![Lime editing a night skyline](lime-screenshot.jpg)
 
 ## Download

@@ -1,0 +1,76 @@
+@import '@fontsource/noto-sans-myanmar/myanmar-400.css';
+@import '@fontsource/noto-sans-myanmar/myanmar-600.css';
+
+:root {
+  --sl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Myanmar', sans-serif;
+  /* Dark colors follow src/theme.rs; blue and gold details follow AppIcon.svg. */
+  --sl-color-white: #e9edf4;
+  --sl-color-gray-1: #d7dbe3;
+  --sl-color-gray-2: #a3adbd;
+  --sl-color-gray-3: #8d95a6;
+  --sl-color-gray-4: #767f8d;
+  --sl-color-gray-5: #303640;
+  --sl-color-gray-6: #20242c;
+  --sl-color-black: #11141a;
+  --sl-color-accent-low: #2c3a54;
+  --sl-color-accent: #acc6ff;
+  --sl-color-accent-high: #b4d9ff;
+  --sl-color-bg: #11141a;
+  --sl-color-bg-nav: #20242c;
+  --sl-color-bg-sidebar: #191d24;
+  --sl-color-text-accent: #acc6ff;
+  --lime-color-button-bg: #acc6ff;
+  --lime-color-button-text: #151d36;
+  --lime-color-button-hover: #b4d9ff;
+  --lime-color-focus: #ffd896;
+  --sl-content-width: 48rem;
+  --sl-sidebar-width: 18rem;
+}
+:root[data-theme='light'] {
+  --sl-color-white: #202e52;
+  --sl-color-gray-1: #303d59;
+  --sl-color-gray-2: #4f5d73;
+  --sl-color-gray-3: #67758c;
+  --sl-color-gray-4: #8d95a6;
+  --sl-color-gray-5: #d7dbe3;
+  --sl-color-gray-6: #e9edf4;
+  --sl-color-gray-7: #f1f4fa;
+  --sl-color-black: #ffffff;
+  --sl-color-accent-low: #e9efff;
+  --sl-color-accent: #3556a5;
+  --sl-color-accent-high: #202e52;
+  --sl-color-bg: #fcfcfe;
+  --sl-color-bg-nav: #f1f4fa;
+  --sl-color-bg-sidebar: #f8f9fd;
+  --sl-color-text-accent: #3556a5;
+  --lime-color-button-bg: #202e52;
+  --lime-color-button-text: #eef4ff;
+  --lime-color-button-hover: #354878;
+  --lime-color-focus: #946018;
+}
+html { scroll-padding-top: 6rem; }
+a:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--lime-color-focus);
+  outline-offset: 3px;
+}
+.site-title { gap: .6rem; font-weight: 650; letter-spacing: -.035em; }
+.site-title img { width: 2.25rem; height: 2.25rem; }
+.sidebar-content { font-size: .9rem; }
+.sidebar-content .top-level > li + li { margin-top: 1.1rem; }
+.sidebar-content a[aria-current='page'] {
+  border-radius: .3rem;
+  background: var(--sl-color-accent-low);
+  color: var(--sl-color-accent-high);
+}
+.sl-markdown-content { line-height: 1.8; }
+.sl-markdown-content h2 { margin-top: 2.4rem; font-size: 1.5rem; }
+.sl-markdown-content h3 { font-size: 1.14rem; }
+.sl-markdown-content img { border: 1px solid var(--sl-color-hairline-light); border-radius: .6rem; }
+.sl-markdown-content a { text-underline-offset: .2em; }
+.sl-markdown-content table { font-size: .93rem; }
+html[lang='my'] { --sl-line-height: 1.9; }
+html[lang='my'] .sl-markdown-content { line-height: 2.05; }
+html[lang='my'] h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.7; }
+html[lang='my'] :is(h2, h3, summary, .sidebar-content a) { line-height: 1.9; }
+html[lang='my'] .sidebar-content { font-size: .88rem; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
