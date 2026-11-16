@@ -7,6 +7,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 const url = (path: string) => `${base}/${my ? 'mm/' : ''}${path}/`;
 const text = (en: string, mm: string) => my ? mm : en;
 const tasks = [
+  ['start/new-image', 'Start with a blank image', 'ပုံအလွတ်မှ စတင်ရန်', 'Make a simple graphic with a background and caption.', 'နောက်ခံနှင့် စာတန်းပါသော ပုံတစ်ပုံ ဖန်တီးပါ။'],
+  ['guides/color-corrections', 'Correct brightness and color', 'အလင်းအမှောင်နှင့် Color ပြင်ရန်', 'Brighten a photo or adjust its color strength.', 'ဓာတ်ပုံကို ပိုလင်းစေပြီး Color အပြင်းအပျော့ ပြင်ပါ။'],
   ['image/crop', 'Crop an image', 'ပုံကို Crop လုပ်ရန်', 'Choose the part of the image to keep.', 'ပုံထဲမှ သိမ်းထားမည့် အပိုင်းကို ရွေးပါ။'],
   ['guides/remove-background', 'Remove a background', 'နောက်ခံ ဖယ်ရှားရန်', 'Select a subject and keep transparent edges.', 'လိုသည့်အရာကို ရွေး၍ နောက်ခံကို ဖယ်ရှားပါ။'],
   ['guides/combine-images', 'Combine images', 'ပုံများ ပေါင်းစပ်ရန်', 'Build a composition with separate layers.', 'Layer များဖြင့် ပုံတစ်ပုံအဖြစ် ပေါင်းစပ်ပါ။'],
@@ -41,6 +43,7 @@ const tasks = [
     <h2 id="understand">{text('Understand the essentials', 'အခြေခံများ လေ့လာရန်')}</h2>
     <ul>
       <li><a href={url('basics/layers')}>{text('Layers and transparency', 'Layers နှင့် Transparency')}</a></li>
+      <li><a href={url('basics/colors')}>{text('Choose and reuse colors', 'Color ရွေးပြီး ပြန်သုံးရန်')}</a></li>
       <li><a href={url('basics/selections')}>{text('Selections and soft edges', 'Selection၊ Antialias နှင့် Feather')}</a></li>
       <li><a href={url('basics/masks')}>{text('Hide pixels with a layer mask', 'Layer mask သုံးရန်')}</a></li>
       <li><a href={url('basics/previews')}>{text('Previews, Apply, and undo', 'Preview၊ Apply နှင့် Undo')}</a></li>

@@ -2,14 +2,14 @@
 title: "Paint and retouch"
 description: "Paint controlled strokes, erase pixels, and clone a clean source area."
 translationKey: guides/paint-retouch
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Paint a controlled stroke {#steps}
 
 1. Select a visible raster layer. For a separate painted overlay, choose **Layer → New Layer…** first.
-2. Pick the foreground swatch in the toolbox. Choose **Brush** for a soft edge or **Pencil** for a hard edge.
+2. [Choose a foreground color](../../basics/colors/) using the toolbox swatch. Choose **Brush** for a soft edge or **Pencil** for a hard edge.
 3. Set brush size, opacity, and hardness where available. `[` and `]` change size. Select **Light** or **Strong** under **Smoothing** if you want a steadier Brush trace.
 4. Drag to paint. Release to commit one stroke; press Escape before releasing to discard it. Shift-click continues a straight line from the previous stroke endpoint.
 5. Use **Eraser** (`E`) to remove alpha, or **Blur Brush** / **Sharpen Brush** from **Tools** to retouch local detail.

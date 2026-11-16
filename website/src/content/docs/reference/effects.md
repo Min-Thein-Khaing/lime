@@ -2,11 +2,13 @@
 title: "Color adjustments and effects"
 description: "Preview color changes, re-edit a retained effect, and repeat successful settings."
 translationKey: reference/effects
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Choose an effect {#choose}
+
+For help choosing an adjustment and making a first correction, see [Make simple color corrections](../../guides/color-corrections/).
 
 **Colors** contains Brightness & Contrast, Hue & Saturation, Color Balance, Levels, Curves, Desaturate, and Invert. These adjustments preserve the layer's alpha. Levels and Curves offer channel controls; their histogram ignores fully transparent pixels.
 

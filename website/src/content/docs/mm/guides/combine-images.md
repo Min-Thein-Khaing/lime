@@ -2,8 +2,8 @@
 title: "ပုံများပေါင်းပြီး နေရာချရန်"
 description: "ပုံများကို Layer အဖြစ် Import လုပ်၍ Scale၊ Move နှင့် Movement Link သုံးနည်း။"
 translationKey: guides/combine-images
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## ပုံများပေါင်းရန် {#steps}
@@ -18,6 +18,31 @@ translatedRevision: "1.2.2-guide-1"
 ## ရလဒ် {#result}
 
 Project ထဲတွင် ပုံတစ်ပုံစီကို သီးခြား Layer အဖြစ် ဆက်ပြင်နိုင်မည်။ Export တွင် Canvas အတွင်းရှိနေရာသာ ပါမည်။ Canvas အပြင်ရောက်နေသော Pixel များ မပါပါ။
+
+## အခြားပုံ၏ တစ်စိတ်တစ်ပိုင်းကို Copy လုပ်ရန် {#clipboard}
+
+1. မူရင်းပုံကို ဖွင့်ပြီး လိုချင်သော Pixel များပါသည့် Layer ရွေးပါ။ **Copy** က ထို Layer နှင့် ၎င်း၏ Enabled Mask ကိုသာ ယူသည်။ မြင်ရသော Layers အားလုံးကို ပေါင်းယူခြင်း မဟုတ်ပါ။
+2. Copy လုပ်မည့်နေရာကို Rectangle၊ Oval သို့မဟုတ် Free Selection ဖြင့် ရွေးပါ။ Selection outline ကို ရွှေ့ခြင်းက ပြင်နိုင်သော ဘောင်ကိုသာ ရွှေ့သည်။ ပုံ၏ Pixel များ မလိုက်ပါ။
+3. **Edit → Copy** (**Cmd/Ctrl+C**) သုံးပါ။ မူရင်းမှ ထို Pixel များကို ဖယ်လိုမှသာ **Edit → Cut** (**Cmd/Ctrl+X**) သုံးပါ။ Cut အတွက် မြင်ရသော Raster Layer ဖြစ်ပြီး Alpha Lock ပိတ်ထားရမည်။
+4. Copy ပြီးလျှင် လက်ခံမည့် Document Tab ကို နှိပ်ပြီး **Edit → Paste** (**Cmd/Ctrl+V**) သုံးပါ။ Text ပြင်နေမှုကို အရင်အဆုံးသတ်ပါ။ Text draft ထဲရှိ Paste က စာထည့်သည်။
+5. Copy ပုံက Canvas အရွယ်မပြောင်းဘဲ အလယ်တွင် Layer အသစ် ဖြစ်လာမည်။ **Move** ဖြင့် နေရာချပါ၊ သို့မဟုတ် **Scale Layer** ဖြင့် အရွယ်ပြင်ပြီး Apply လုပ်ပါ။
+
+**ရလဒ်:** Copy လုပ်ထားသော အပိုင်းက မူရင်းနှင့် သီးခြားဖြစ်မည်။ Oval/Free Selection အပြင်ဘက်က Pasted Layer တွင် Transparent ဖြစ်ပြီး Feather လုပ်ထားသော အနားက Soft edges အတိုင်း ကျန်သည်။ Cut ကြောင့် မူရင်းပြောင်းလဲမှုကိုပါ သိမ်းလိုလျှင် Project နှစ်ခုလုံး Save လုပ်ပါ။
+
+Copy လုပ်ထားသော အပိုင်းကို Document သီးခြား ဖန်တီးလိုလျှင် **File → New from Clipboard** သုံးပါ။ Document တစ်ခုတည်းအတွင်း Pixel ရွှေ့လိုလျှင် ထိုနေရာတွင် Copy၊ Paste လုပ်ပြီး Pasted Layer ကို ရွှေ့ပါ။
+
+## Guides နှင့် Grid ဖြင့် ညှိရန် {#guides-grid}
+
+ဥပမာ ပုံနှင့် စာတန်း၏ ဘယ်ဘက်အနားများ တန်းစေရန် Vertical Guide တစ်ခု ချထားနိုင်သည်။
+
+1. **View → Toggle Rulers and Guides** ရွေးပြီး **Move** (`M`) သုံးပါ။
+2. Vertical Guide အတွက် ဘယ် Ruler မှ Canvas ထဲသို့ ဆွဲပါ။ Horizontal Guide အတွက် အပေါ် Ruler မှ ဆွဲပါ။ Guide ကို ဆွဲပြီး နေရာပြောင်းနိုင်သည်။ ဖယ်ရန် Canvas Workspace အပြင်သို့ ဆွဲကာ Ruler ပေါ် သို့မဟုတ် Workspace အပြင်တွင် လွှတ်ပါ။
+3. **View → Snap to Guides** ဖွင့်ပါ။ ပုံ၏ Layer ရွေးပြီး Guide အနီးသို့ ဆွဲပါ။ အနား သို့မဟုတ် အလယ်က Guide နှင့် တည့်အောင် Snap ဖြစ်နိုင်သည်။ စာတန်း Layer ကိုလည်း ထိုနည်းအတိုင်း ညှိပါ။
+4. အကွာအဝေး ပုံမှန်ထားရန် **View → Toggle Grid** နှင့် **Snap to Grid** သုံးပါ။ Move ၏ **Snapping** section ထဲရှိ **Grid spacing (px)** တွင် လိုအပ်သော အကွာအဝေး သတ်မှတ်ပါ။
+
+Drag လုပ်စဉ် **Control** ဖိထားလျှင် Snapping နှင့် Guide ဆွဲမိခြင်းကို ခဏကျော်နိုင်သည်။ macOS တွင်လည်း Control သုံးသည်။ X/Y ရိုက်ခြင်းနှင့် Arrow key ဖြင့် ရွှေ့ခြင်းကလည်း Snapping ကို မသုံးပါ။ Grid သို့မဟုတ် Guides ဖျောက်ထားလည်း Snapping ဖွင့်နေနိုင်သည်။ မမျှော်လင့်ဘဲ ငြိနေသေးလျှင် သက်ဆိုင်ရာ Snap command ကို ပိတ်ပါ။
+
+Guides နှင့် Grid က နေရာချရန်သာဖြစ်ပြီး Export ပုံထဲ မပါပါ။ Guides ကို `.lime` Project ထဲ သိမ်းသည်။ Grid spacing နှင့် Snapping က Personal settings ဖြစ်သည်။ Guide အစား Canvas နှင့် တိုက်ရိုက်ညှိရန် **Layer → Align** သုံးပါ။
 
 ## Layer များ အတူရွှေ့ရန် {#links}
 

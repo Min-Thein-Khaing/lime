@@ -2,13 +2,13 @@
 title: "ပထမဆုံး ပုံပြင်ရန်"
 description: "ပုံဖွင့်ပြီး Crop လုပ်ကာ ပြန်ပြင်နိုင်သော Project နှင့် PNG မိတ္တူ Save လုပ်ရန်။"
 translationKey: "start/first-edit"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## ပုံဖွင့်ပြီး Crop လုပ်ရန် {#steps}
 
-1. **File → Open…** မှ PNG၊ JPEG သို့မဟုတ် WebP ပုံကို ရွေးပါ။ ပုံအလွတ်မှ စလိုလျှင် **File → New Image…** ကို သုံးပါ။
+1. **File → Open…** မှ PNG၊ JPEG သို့မဟုတ် WebP ပုံကို ရွေးပါ။ Design အသစ် ဖန်တီးလိုလျှင် [ပုံအလွတ်မှ စတင်ရန်](../../start/new-image/) ကို ကြည့်ပါ။
 2. Toolbox မှ **Crop** ကို ရွေးပါ။ Canvas ကို Focus ထားစဉ် **C** နှိပ်လည်း ရသည်။
 3. ချန်ထားမည့် နေရာပေါ် Box ဆွဲပါ။ Box အတွင်းမှ ဆွဲပြီး ရွှေ့ပါ။ လေးထောင့် Handle မှ ဆွဲပြီး အရွယ်ပြင်ပါ။ အချိုးမကန့်သတ်လိုလျှင် **Free**၊ စတုရန်းအတွက် **1:1** ကို ရွေးပါ။
 4. **Image → Apply Crop** ကို ရွေးပါ သို့မဟုတ် Canvas ပေါ်တွင် **Return** နှိပ်ပါ။ Crop အပြင်ဘက်ကို Document မှ ဖယ်မည်။ **Edit → Undo** ဖြင့် ပြန်ယူနိုင်သည်။

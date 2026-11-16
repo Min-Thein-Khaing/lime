@@ -2,11 +2,13 @@
 title: "Color Adjustment နှင့် Effects"
 description: "Color ပြောင်းမှု Preview၊ သိမ်းထားသော Layer Effect ပြန်ပြင်ခြင်းနှင့် Settings ထပ်သုံးနည်း။"
 translationKey: reference/effects
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Effect ရွေးရန် {#choose}
+
+Adjustment ရွေးပြီး စပြင်ရန် [ပုံ၏ အလင်းအမှောင်နှင့် Color ပြင်ရန်](../../guides/color-corrections/) ကို ကြည့်ပါ။
 
 **Colors** တွင် Brightness & Contrast၊ Hue & Saturation၊ Color Balance၊ Levels၊ Curves၊ Desaturate နှင့် Invert ပါသည်။ ဤ Adjustment များက Layer ၏ Alpha ကို မပြောင်းပါ။ Levels နှင့် Curves တွင် Channel controls ရှိသည်။ Histogram က လုံးဝ Transparent ဖြစ်သော Pixel များကို မတွက်ပါ။
 

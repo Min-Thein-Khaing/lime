@@ -2,8 +2,8 @@
 title: "Combine and position images"
 description: "Import images as layers, resize them, and keep related layers moving together."
 translationKey: guides/combine-images
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Build the composition {#steps}
@@ -18,6 +18,31 @@ translatedRevision: "1.2.2-guide-1"
 ## Expected result {#result}
 
 Each imported image remains independently editable in the project. Only the canvas area appears in the export; pixels outside it are not visible in that copy.
+
+## Copy part of another image {#clipboard}
+
+1. Open the source image and select the layer containing the pixels you want. **Copy** reads that layer, including its enabled mask, rather than copying all visible layers together.
+2. Make a rectangle, oval, or free selection around the part to copy. Moving the selection outline only changes the editing boundary; it does not move the image pixels.
+3. Choose **Edit → Copy** (**Cmd/Ctrl+C**). Use **Edit → Cut** (**Cmd/Ctrl+X**) instead only if you want to clear those pixels from the source. Cut needs a visible raster layer with Alpha Lock off.
+4. After copying finishes, click the destination document's tab and choose **Edit → Paste** (**Cmd/Ctrl+V**). Finish any text editing first; Paste inside a text draft inserts text.
+5. The copied image becomes a new, centered layer without resizing the canvas. Choose **Move** to position it, or **Scale Layer** to resize it and Apply.
+
+**Expected result:** the copied part is independent of the original. Pixels outside an oval/free selection remain transparent in the pasted layer; feathered edges retain their softness. Save both projects if you used Cut and want to keep the source change too.
+
+Use **File → New from Clipboard** if the copied part should become a separate document instead. To move pixels within the same document, Copy and Paste there, then move the pasted layer.
+
+## Line things up with guides and the grid {#guides-grid}
+
+For example, place a vertical guide where the left edges of a picture and caption should line up.
+
+1. Choose **View → Toggle Rulers and Guides**, then select **Move** (`M`).
+2. Drag from the left ruler onto the canvas for a vertical guide, or from the top ruler for a horizontal guide. Drag a guide to reposition it. To remove it, drag it out of the canvas workspace and release on a ruler or beyond the workspace.
+3. Enable **View → Snap to Guides**. Select the picture's layer and drag it near the guide; its edges or center can snap into alignment. Repeat for the caption layer.
+4. For regular spacing, choose **View → Toggle Grid** and **Snap to Grid**. In Move's **Snapping** section, set **Grid spacing (px)** to the interval you want.
+
+Hold **Control** while dragging to bypass snapping and guide grabs, including on macOS. Typed X/Y positions and arrow-key nudges bypass snapping too. Snapping can remain enabled when the grid or guides are hidden; switch off the relevant Snap command if movement still catches unexpectedly.
+
+Guides and the grid help placement and do not appear in exported artwork. Guides are saved in the `.lime` project; grid spacing and snapping choices are personal settings. Use **Layer → Align** for direct alignment to the canvas rather than to a guide.
 
 ## Move related layers together {#links}
 

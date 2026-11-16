@@ -1,9 +1,9 @@
 ---
 title: "Layers နှင့် Transparency"
-description: "Active layer၊ Layer order၊ Transparency၊ Opacity၊ Lock နှင့် Movement Link အကြောင်း။"
+description: "Layer ဖန်တီးခြင်း၊ စီခြင်း၊ မြင်ရပုံပြင်ခြင်း၊ Lock နှင့် Movement Link သုံးနည်း။"
 translationKey: "basics/layers"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## ပြင်မည့် Layer ရွေးရန် {#active-layer}
@@ -12,14 +12,28 @@ Document ထဲတွင် Layers ကို အပေါ်အောက် စ�
 
 **Layers** ထဲရှိ Row ကို နှိပ်ပြီး Active လုပ်ပါ။ ပုံဆွဲခြင်း၊ Fill နှင့် Effect အများစုက ထို Layer ကိုသာ သက်ရောက်သည်။ မြင်ရသော Layers အားလုံးကို ပြင်ခြင်း မဟုတ်ပါ။ Document တစ်ခုတည်းထဲ အခြားပုံထည့်ရန် **File → Open as Layers…** ကို သုံးပါ။
 
+## Layer ဖန်တီးပြီး စီရန် {#organize}
+
+- **ဖန်တီးရန်:** **Layer → New Layer…** ရွေးပြီး မှတ်မိလွယ်သော အမည်ပေးပါ။ Fill ရွေးပြီး **Create** နှိပ်ပါ။ **Transparent** က ပုံဆွဲရန် Canvas အရွယ်ရှိ Layer အလွတ် ဖန်တီးသည်။ **Foreground** သို့မဟုတ် **Background** က ထို Swatch ဖြင့် ဖြည့်သည်။ Layer အသစ်က Active Layer အပေါ်တွင် ရှိမည်။
+- **အမည်ပြောင်းရန်:** Row ရွေးပြီး **Layer → Rename Layer…** သုံးပါ၊ သို့မဟုတ် Right-click လုပ်ပြီး **Rename Layer…** ရွေးပါ။ Background၊ Photo၊ Caption ကဲ့သို့ အမည်များက Layer ရှာရလွယ်စေသည်။
+- **မိတ္တူလုပ်ရန်:** မစမ်းပြင်မီ **Layer → Duplicate Layer** သုံးပါ။ Editable Text မိတ္တူတွင်လည်း Text ကို ဆက်ပြင်နိုင်သည်။ မိတ္တူက Movement Link နှင့် Source Attachment မပါဘဲ စသည်။
+- **စီရန်:** Row ကို အပေါ်အောက် ဆွဲပါ၊ သို့မဟုတ် **Layer → Raise Layer / Lower Layer** သုံးပါ။ ပုံကို မဖုံးစေရန် Opaque နောက်ခံကို အောက်တွင် ထားပါ။
+- **ဖျက်ရန်:** ရည်ရွယ်သော Row ရွေးပြီး **Layer → Delete Layer** သို့မဟုတ် Layer Context menu ၏ **Delete Layer** ကို သုံးပါ။ မှားဖျက်လျှင် **Edit → Undo** ဖြင့် ပြန်ယူပါ။ Document တွင် အနည်းဆုံး Layer တစ်ခု ကျန်ရမည်။ Canvas ပေါ်ရှိ Delete/Backspace က Layer ဖျက်ခြင်းမဟုတ်ဘဲ Pixel များကို ရှင်းသည်။
+
 ## ပုံမြင်ရပုံ ပြင်ရန် {#appearance}
 
 1. Row ရှိ Visibility ကို ပိတ်ဖွင့်ပြီး ထို Layer ပါ/မပါ နှိုင်းယှဉ်ပါ။
 2. Layer တစ်ခုလုံး၏ Opacity လျှော့ရန် **Layer → Layer Opacity…** ကို သုံးပါ။
 3. အပေါ်အောက် အစီအစဉ်ကို **Layer → Raise Layer** သို့မဟုတ် **Lower Layer** ဖြင့် ပြောင်းပါ။ အပေါ် Layer ၏ Opaque pixels က အောက် Layer ကို ဖုံးသည်။
-4. ထပ်နေသော Colors ရောစပ်ပုံပြောင်းရန် Layers panel မှ Blend mode ကို ရွေးပါ။ **Normal** က သာမန် Layer ထပ်ပုံအတိုင်း ပြသည်။ **Multiply**၊ **Screen** နှင့် **Overlay** က Colors ကို မတူညီသော နည်းဖြင့် ရောစပ်သည်။
+4. ထပ်နေသော Colors ရောစပ်ပုံပြောင်းရန် Layers panel မှ Blend mode ကို ရွေးပါ။ သာမန် Layer ထပ်ပုံအတွက် **Normal** မှ စပါ။ အဖြူပေါ် အမည်းမျဉ်းများပါသော Layer ကို ရောင်စုံ Layer အပေါ်တင်ပြီး **Multiply** စမ်းကြည့်ပါ။ အဖြူက အောက် Color ကို မဖုံးတော့ဘဲ အမည်းမျဉ်းများ ကျန်သည်။ အနက်ပေါ် အလင်းစက်များပါသော Texture ကို ဓာတ်ပုံအပေါ်တင်ပြီး **Screen** စမ်းပါ။ အနက်က ဓာတ်ပုံကို မဖုံးတော့ဘဲ အလင်းနေရာများက ပိုလင်းစေသည်။ ရလဒ်ပြင်းလွန်းလျှင် Layer Opacity လျှော့ပါ။ သာမန်ထပ်ပုံ ပြန်လိုလျှင် Normal ပြန်ရွေးပါ။
 
 **ရလဒ်:** Canvas ပေါ်ရှိ ပေါင်းစပ်ပုံ ပြောင်းသော်လည်း Layer တစ်ခုစီ သီးခြား ကျန်မည်။ Layers ကို ထိန်းထားရန် `.lime` ဖြင့် Save လုပ်ပါ။ Export က Layers ပေါင်းထားသော ပုံတစ်ပုံ ထုတ်ပေးသည်။
+
+## Layer တစ်ခုတည်း လိုမှ Merge လုပ်ရန် {#merge}
+
+ကပ်လျက် Raster Layer နှစ်ခုထဲမှ အပေါ် Layer ရွေးပြီး **Layer → Merge Down** သုံးပါ။ Opacity၊ Mask နှင့် Effects ကို Pixel များထဲ Bake လုပ်ကာ Raster Layer တစ်ခုတည်း ဖြစ်သွားမည်။ Undo သို့မဟုတ် ယခင် Project မိတ္တူ မရှိလျှင် နှစ်ပိုင်းကို သီးခြားရွှေ့ခြင်း၊ ပြန်ပြင်ခြင်း မရတော့ပါ။ ရလဒ်တွင် ထို Layers ၏ Movement Link နှင့် Attachment များလည်း မကျန်ပါ။
+
+Layer နှစ်ခုလုံး မြင်ရပြီး Rasterize လုပ်ထားကာ Alpha/Position Lock မရှိရပါ။ Blend mode သို့မဟုတ် ပုံအရွယ်ကန့်သတ်ချက်ကြောင့်လည်း Merge Down မရနိုင်ပါ။ **Normal** က စသုံးရန် အလွယ်ဆုံးဖြစ်သည်။ သီးခြားဆက်ပြင်လိုသေးလျှင် Layers ကို မပေါင်းပါနှင့်။ Export က မြင်ရသောပုံကို သီးခြားပုံတစ်ပုံအဖြစ် ပေါင်းထုတ်ပြီးသားဖြစ်သောကြောင့် မျှဝေရန် Merge လုပ်ရန် မလိုပါ။
 
 ## Lock နှင့် အတူရွှေ့ခြင်း {#locks-links}
 

@@ -1,9 +1,9 @@
 ---
 title: "Selections and soft edges"
-description: "Limit edits to part of an image and understand antialiasing, feathering, and selection combinations."
+description: "Limit edits, combine selections, soften edges, and paint an outline around a selection."
 translationKey: "basics/selections"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## What a selection changes {#meaning}
@@ -29,8 +29,23 @@ For a selection that already exists, **Select → Feather…** changes its cover
 
 After combining shapes or editing their coverage, a selection may become a mask without the original rectangle/oval controls. A selection mask and a layer mask serve different purposes: the former limits editing; the latter controls a layer's visibility.
 
+## Paint a border around a selection {#stroke}
+
+Use this for a rectangular frame, a circle, or a free-shaped border.
+
+1. Make the selection. For a crisp geometric border, leave **Feather new selections** off; choose Antialias separately if you want smoother curved edges.
+2. Choose **Layer → New Layer…**, name it **Border**, and use **Transparent** fill. Keep it visible and Alpha Lock off. This gives the border its own layer; creating the layer keeps the selection in place.
+3. Set the foreground color, then choose **Edit → Stroke Selection…**.
+4. Choose **Pencil** for a hard stroke or **Brush** for adjustable hardness. Set **Size (px)**, start with 100% Opacity and Buildup off, then click **Stroke**. Size controls the border's thickness in image pixels.
+5. Choose **Select → Select None** to inspect the painted border. Use **Edit → Undo** if you want to try a different size.
+
+**Expected result:** the border is painted onto the active raster layer along the selection edge. The brush extends to both sides of that edge, rather than being clipped to the selected interior. Leave room inside the canvas for the full stroke. Changing the selection later does not redraw the border.
+
+**Edit → Stroke Selection…** follows a selection you made and paints on the active layer. **Filters → Stroke…** instead uses a layer's visible silhouette to generate an outside-only outline on a new layer beneath it. For example, use the filter to outline [text](../../guides/text-effects/) without first drawing a selection.
+
 ## Related guides {#related}
 
 - [Selection tools](../../reference/selection/)
 - [Remove a background](../../guides/remove-background/)
 - [Layer masks](../../basics/masks/)
+- [Copy selected pixels into another image](../../guides/combine-images/#clipboard)

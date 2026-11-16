@@ -2,13 +2,13 @@
 title: "Color နှင့် Gradient ဖြည့်ရန်"
 description: "Connected region သို့မဟုတ် Selection အတွင်း Color ဖြည့်ခြင်းနှင့် Gradient Preview လုပ်နည်း။"
 translationKey: guides/fills-gradients
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Color ဖြည့်ရန် {#steps}
 
-1. ပြင်လိုသော မြင်ရသည့် Raster Layer ကို ရွေးပြီး Foreground Color သတ်မှတ်ပါ။
+1. ပြင်လိုသော မြင်ရသည့် Raster Layer ကို ရွေးပြီး [Foreground color သတ်မှတ်ပါ](../../basics/colors/)။
 2. **Bucket Fill** (`B`) ရွေးပါ။ ဆက်နေသော Color တူသည့်နေရာအတွက် **Connected** ရွေးပါ။ လက်ရှိ Selection အပြည့် ဖြည့်ရန် **Selection** ရွေးပါ။
 3. Connected တွင် Color အတိအကျတူမှ ဖြည့်ရန် **Tolerance** 0 ဖြင့် စပါ။ ဆင်တူသော Color များပါ ဖြည့်လိုလျှင် တိုးပါ။ **Gap radius** နည်းနည်းက နယ်နိမိတ်ရှိ အပေါက်ငယ်များကို ပိတ်တွက်ပေးသည်။ နယ်နိမိတ် Pixel များကို မဖြည့်ပါ။
 4. အခြား Layer များနှင့် ပေါင်းမှ နယ်နိမိတ်ပြည့်စုံလျှင် **Sample All Layers** ဖွင့်ပါ။ Fill က Active Layer ပေါ်သာ သက်ရောက်သည်။

@@ -2,13 +2,13 @@
 title: "Fill with colors and gradients"
 description: "Fill a connected area or a selection and preview a custom gradient."
 translationKey: guides/fills-gradients
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Fill a region {#steps}
 
-1. Select the visible raster layer to edit, then set the foreground color.
+1. Select the visible raster layer to edit, then [set the foreground color](../../basics/colors/).
 2. Choose **Bucket Fill** (`B`). Select **Connected** to fill a matching connected area, or **Selection** to cover the whole current selection.
 3. In Connected mode, start with **Tolerance** at 0 for an exact match. Raise it if near colors should join. A small **Gap radius** closes breaks in boundaries without painting over the boundary pixels.
 4. Enable **Sample All Layers** when visible layers together define the boundary. The fill still edits only the active layer.

@@ -2,13 +2,13 @@
 title: "Make your first edit"
 description: "Open an image, crop it, save an editable project, and export a PNG copy."
 translationKey: "start/first-edit"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Open and crop {#steps}
 
-1. Choose **File → Open…** and select a PNG, JPEG, or WebP image. To start with an empty image instead, choose **File → New Image…**.
+1. Choose **File → Open…** and select a PNG, JPEG, or WebP image. To create a design instead, follow [Start with a blank image](../../start/new-image/).
 2. Select **Crop** from the toolbox or press **C** while the canvas has focus.
 3. Drag a box over the area to keep. Drag inside the box to reposition it, or drag a square handle to resize it. Choose **Free** for any proportions or **1:1** for a square.
 4. Choose **Image → Apply Crop** or press **Return** on the canvas. Pixels outside the crop are removed from the document; **Edit → Undo** reverses the edit.

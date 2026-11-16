@@ -1,9 +1,9 @@
 ---
 title: "Selection၊ Antialias နှင့် Feather"
-description: "ပုံ၏ တစ်စိတ်တစ်ပိုင်းကိုသာ ပြင်ရန် Selection သုံးပြီး Antialias၊ Feather နှင့် ပေါင်းစပ်ရွေးချယ်နည်း သိရန်။"
+description: "Selection ဖြင့် ပြင်မည့်နေရာ ကန့်သတ်ခြင်း၊ ပေါင်းစပ်ခြင်း၊ အနားပြင်ခြင်းနှင့် Border ဆွဲနည်း။"
 translationKey: "basics/selections"
-sourceRevision: "1.2.2-guide-1"
-translatedRevision: "1.2.2-guide-1"
+sourceRevision: "1.2.3-guide-1"
+translatedRevision: "1.2.3-guide-1"
 ---
 
 ## Selection အလုပ်လုပ်ပုံ {#meaning}
@@ -29,8 +29,23 @@ Selection outline က ဘောင်ကိုသာ ပြသည်။ အန�
 
 Shapes ပေါင်းစပ်ပြီးနောက် သို့မဟုတ် Coverage ပြင်ပြီးနောက် Selection က Mask ဖြစ်သွားနိုင်သည်။ ထိုအခါ မူလ Rectangle/Oval controls မရှိတော့နိုင်ပါ။ Selection mask က ပြင်နိုင်သော နေရာကို ကန့်သတ်သည်။ Layer mask က Layer ၏ Visibility ကို ထိန်းသည်။
 
+## Selection ပတ်လည် Border ဆွဲရန် {#stroke}
+
+လေးထောင့်ဘောင်၊ စက်ဝိုင်း သို့မဟုတ် Free shape Border ဆွဲရန် သုံးနိုင်သည်။
+
+1. Selection လုပ်ပါ။ ပြတ်သားသော Geometric Border အတွက် **Feather new selections** ပိတ်ထားပါ။ Curve အနား ချောမွေ့လိုလျှင် Antialias ကို သီးခြားရွေးပါ။
+2. **Layer → New Layer…** ရွေးပြီး **Border** ဟု အမည်ပေးကာ **Transparent** Fill သုံးပါ။ Layer ကို မြင်ရအောင် ဖွင့်ထားပြီး Alpha Lock ပိတ်ထားပါ။ Border အတွက် Layer သီးခြား ရမည်။ Layer အသစ်လုပ်သော်လည်း Selection နေရာ မပြောင်းပါ။
+3. Foreground color ရွေးပြီး **Edit → Stroke Selection…** သုံးပါ။
+4. Hard stroke အတွက် **Pencil**၊ Hardness ပြင်နိုင်ရန် **Brush** ရွေးပါ။ **Size (px)** သတ်မှတ်ပြီး Opacity 100%၊ Buildup ပိတ်ထားသော အခြေအနေမှ စကာ **Stroke** နှိပ်ပါ။ Size က Border အထူကို ပုံ၏ Pixel ဖြင့် သတ်မှတ်သည်။
+5. Border ကို စစ်ရန် **Select → Select None** သုံးပါ။ အခြား Size စမ်းလိုလျှင် **Edit → Undo** သုံးပါ။
+
+**ရလဒ်:** Active Raster Layer ပေါ်တွင် Selection အနားတစ်လျှောက် Border ဆွဲပေးမည်။ Brush က Selection အတွင်းမှာသာ ကန့်သတ်ခြင်းမရှိဘဲ အနား၏ နှစ်ဖက်လုံးသို့ ဖြန့်သည်။ Stroke အပြည့်ဝင်ဆံ့ရန် Canvas အတွင်း နေရာချန်ပါ။ နောက်မှ Selection ပြောင်းရုံဖြင့် Border ကို ပြန်မဆွဲပါ။
+
+**Edit → Stroke Selection…** က ကိုယ်ဖန်တီးသော Selection အတိုင်း Active Layer ပေါ်တွင် ဆွဲသည်။ **Filters → Stroke…** က Layer ၏ မြင်ရသော ပုံသဏ္ဌာန်ကို ယူပြီး အပြင်ဘက် Outline သာ ဖန်တီးကာ အောက်တွင် Layer အသစ် ထည့်သည်။ ဥပမာ [Text](../../guides/text-effects/) ကို Selection အရင်မလုပ်ဘဲ Outline ထည့်ရန် Filter ကို သုံးနိုင်သည်။
+
 ## ဆက်ဖတ်ရန် {#related}
 
 - [Selection tools](../../reference/selection/)
 - [နောက်ခံဖယ်ရန်](../../guides/remove-background/)
 - [Layer mask သုံးရန်](../../basics/masks/)
+- [ရွေးထားသော Pixel များကို အခြားပုံထဲ Copy လုပ်ရန်](../../guides/combine-images/#clipboard)
