@@ -26,7 +26,7 @@ associations. The macOS DMG is currently Apple silicon only. See README.md
 for downloads and signing status.
 
 Linux x86_64 and ARM64 (`aarch64`) ship as portable downloads. The maintainer
-accepted device verification for 1.2.0, and the combined candidate passed CI for
+accepted device verification for 1.2.0, and the 1.2.2 candidate passed CI for
 all four release targets. ARM64 Wayland was visually checked on Arch Linux ARM/Hyprland
 with Mesa 26.2.6 software Vulkan in a VM; X11/Wayland smoke checks also pass.
 GPUI's Linux target enables both Wayland and X11. `src/workspace/linux_menu.rs`
@@ -1337,5 +1337,5 @@ app backups, and project build caches can be removed when cleanup is requested.
   spaces, soft proofing, CMYK ICC import, or high-precision editing.
 - `fixtures/pdf/` contains self-authored CropBox/rotation, Helvetica/embedded Type 3,
   transparency, image, malformed, and encrypted inputs. These tests are in the
-  shared macOS/Windows suite. Windows execution/native display QA remains for CI
-  and the maintainer. No interactive app launch is part of this pass's validation.
+  shared macOS/Windows CI suite. Native display QA remains with the maintainer;
+  candidate CI does not launch the interactive app.
