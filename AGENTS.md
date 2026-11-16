@@ -484,8 +484,9 @@ Pointer selection uses the latest matching caret map;
 late layout may resolve a released drag, but edits/navigation invalidate its
 old pending hit. Deactivation ends a pointer drag. Modified navigation in the
 font filter remains in that filter and cannot affect canvas text. Styles still
-apply to the whole text layer. Native Edit menu actions and Undo/Redo step through
-typing first, then fall through to image history. There is no Apply or Discard: Escape,
+apply to the whole text layer. Text entry uses key events and clipboard text;
+native IME composition is not supported. Native Edit menu actions and Undo/Redo
+step through typing first, then fall through to image history. There is no Apply or Discard: Escape,
 Cmd/Ctrl-Enter, a click outside the text, or changing tools, layers, tabs, or
 any image command commits a modified draft as one undo step, and a command
 that depends on the result resolves its active layer after that commit lands.
@@ -856,6 +857,9 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   the on-canvas part of a layer into a canvas-sized image.
 - `src/document/content.rs` owns the canvas dimensions, raster layer stack, and paths.
   It handles crop, layer-local bucket fill, layer offsets, content crops, and outline strokes.
+  Merge admission subtracts both inputs' complete pixel/mask/effect storage before
+  counting the merged bitmap. Layer content crop checks its new offset before
+  changing pixels, masks, or retained effects; overflowing origins leave it unchanged.
   `src/document/links.rs` owns the stable-ID movement set, directional shadow
   attachments, validation, atomic checked translations, and pruning. `set_offset` stays the
   single-layer primitive for transforms; user moves and alignment use
@@ -877,7 +881,8 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   per-line selection rectangles. `unicode-segmentation` was already transitive
   and is now a direct dependency for these grapheme and word boundaries.
   `src/workspace/text_ui.rs` edits that draft, commits it when the session
-  ends, and draws the font picker and style options.
+  ends, and draws the font picker and style options. Text sprites apply the
+  document color mode before display, including intrinsic RGB from color fonts.
 - `src/project.rs` reads project versions 6 through 10 and applies the same size limits
   in both directions. Any layer lock requires version 8 with an optional per-layer
   `locks` object. Missing flags default to false; unlocked layers omit the object.
@@ -991,8 +996,10 @@ Grow/Shrink use linear-time running max/min filters to preserve soft coverage.
   decodes the image and prepares its canvas in the background. Open as Layers
   routes a single PDF through the PDF import form.
 - `src/workspace/files.rs` handles native file dialogs, Save routing,
-  background saving and export, and unsaved-change confirmation. Raster Save
-  eligibility is rechecked after the native dialog, since a deferred paste can
+  background saving and export, and unsaved-change confirmation. Save
+  and layer menu commands finish inline numeric edits through the existing
+  deferred followup path; layer commands retain their original active-layer ID.
+  Raster Save eligibility is rechecked after the native dialog, since a deferred paste can
   change the document while it is open. An unfinished free selection is a pending
   gesture for Save, Export, Close, and Quit.
 - `src/workspace/layers.rs` owns the Layers panel, layer commands, opacity

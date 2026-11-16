@@ -227,6 +227,15 @@ struct TextPreviewInput {
     anchor: (i32, i32),
 }
 
+fn text_preview_pixels(
+    pixels: &image::RgbaImage,
+    opacity: u8,
+    mode: crate::transform::ColorMode,
+) -> image::RgbaImage {
+    // Color fonts supply their own RGB even when the requested text color is gray.
+    mode.constrain_image(super::layers::with_layer_opacity(pixels, opacity))
+}
+
 #[derive(Clone, PartialEq)]
 pub(super) struct RecoveryText {
     spec: TextSpec,
@@ -2293,6 +2302,11 @@ impl Workspace {
         let Some(draft) = self.text_draft.as_ref().map(TextDraft::preview_input) else {
             return;
         };
+        let mode = self
+            .active_document()
+            .map_or(crate::transform::ColorMode::Rgb, |document| {
+                document.content.mode()
+            });
         let base = self
             .text_overlay
             .is_none()
@@ -2316,7 +2330,7 @@ impl Workspace {
                 Arc::new(text::caret_map(&draft.spec)?)
             };
             let substitution = text::substitution(&rendered.style);
-            let shown = super::layers::with_layer_opacity(&rendered.image, draft.opacity);
+            let shown = text_preview_pixels(&rendered.image, draft.opacity, mode);
             let sprite = document::preview_render(&shown);
             let (below, above) = base
                 .as_ref()
@@ -2530,6 +2544,36 @@ mod tests {
             dragging: false,
             undo: Vec::new(),
             redo: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn color_glyph_preview_matches_committed_text_in_rgb_and_grayscale() {
+        // A color-font glyph carries intrinsic RGB despite the gray text style.
+        let mut rendered = (*draft(None).rendered).clone();
+        rendered.image = Arc::new(image::RgbaImage::from_fn(2, 2, |x, y| {
+            image::Rgba([240, 120, 30, (x + y) as u8 * 100])
+        }));
+        for mode in [
+            crate::transform::ColorMode::Rgb,
+            crate::transform::ColorMode::Grayscale,
+        ] {
+            let mut content =
+                document::DocumentContent::single_layer("Base".into(), image::RgbaImage::new(2, 2));
+            content.set_color_mode(mode);
+            let id = content
+                .insert_text_layer(content.top_layer_id(), (0, 0), rendered.clone())
+                .unwrap();
+            for opacity in [255, 97] {
+                content.set_opacity(id, opacity);
+                assert_eq!(
+                    text_preview_pixels(&rendered.image, opacity, mode),
+                    super::super::layers::with_layer_opacity(
+                        &content.layer(id).unwrap().pixels,
+                        opacity
+                    ),
+                );
+            }
         }
     }
 

@@ -54,11 +54,13 @@ Finish an active drag before toggling the sidebar.
 Fold secondary option sections with the mouse or keyboard to leave more room for Layers and Paths;
 their headers summarize active settings. Oval Select uses **1:1** for circles.
 Aspect-ratio choices also reshape the current selection or crop box.
+Typed numeric edits finish before Save and layer menu commands.
 Layer → Transform and the toolbox use the same Scale Layer, Rotate, Flip, and
 Perspective tools. Reselecting an active transform keeps its preview.
 Use Edit → **Stroke Path…** or **Stroke Selection…** to choose
 stroke settings; the Paths panel's **Stroke** button applies the shared settings
 directly. **Visible Paths to Selection** combines visible closed paths.
+For text requiring an input method, compose it elsewhere and paste it into Lime.
 
 Crop and paint strokes can start outside the canvas; crop stays within the image.
 Crop ignores drags whose area stays entirely outside the image.

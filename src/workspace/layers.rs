@@ -426,6 +426,17 @@ impl Workspace {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        let Some(tab) = self.active_tab().filter(|tab| !tab.busy()) else {
+            return;
+        };
+        let layer = tab.active_layer;
+        if self.commit_numeric_with_followup(
+            super::numeric::NumericFollowup::LayerCommand { layer, command },
+            window,
+            cx,
+        ) {
+            return;
+        }
         if self.finish_text(window, cx) {
             self.defer_after_text(move |this, window, cx| {
                 this.run_layer_command(command, window, cx)

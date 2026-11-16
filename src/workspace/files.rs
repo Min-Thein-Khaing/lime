@@ -247,6 +247,13 @@ impl Workspace {
     }
 
     pub(super) fn save(&mut self, mode: SaveMode, window: &mut Window, cx: &mut Context<Self>) {
+        if self.commit_numeric_with_followup(
+            super::numeric::NumericFollowup::Save(mode),
+            window,
+            cx,
+        ) {
+            return;
+        }
         if self.finish_text(window, cx) {
             self.defer_after_text(move |this, window, cx| this.save(mode, window, cx));
             return;

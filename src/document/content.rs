@@ -1365,7 +1365,11 @@ impl DocumentContent {
         let bytes = u64::try_from(width)
             .ok()?
             .checked_mul(u64::try_from(height).ok()?)?;
-        let removed = lower.pixels.as_raw().len() as u64 + upper.pixels.as_raw().len() as u64;
+        let removed = [lower, upper]
+            .into_iter()
+            .flat_map(RasterLayer::storage)
+            .map(|pixels| pixels.as_raw().len() as u64)
+            .sum();
         self.fits_stack(removed, bytes.checked_mul(4)?)
             .then_some((index, union))
     }
@@ -2127,6 +2131,13 @@ impl DocumentContent {
             crate::geometry::ContentCrop::Unchanged => return LayerGeometry::Unchanged,
             crate::geometry::ContentCrop::Crop(crop) => crop,
         };
+        let origin = self.layers[index].offset;
+        let (Some(x), Some(y)) = (
+            origin.0.checked_add_unsigned(crop.x),
+            origin.1.checked_add_unsigned(crop.y),
+        ) else {
+            return LayerGeometry::Unchanged;
+        };
         let layer = &mut self.layers[index];
         let before = layer.bounds();
         layer.map_mask(|mask| {
@@ -2136,10 +2147,7 @@ impl DocumentContent {
         layer.pixels = Arc::new(
             imageops::crop_imm(&*layer.pixels, crop.x, crop.y, crop.width, crop.height).to_image(),
         );
-        layer.offset = (
-            layer.offset.0.saturating_add_unsigned(crop.x),
-            layer.offset.1.saturating_add_unsigned(crop.y),
-        );
+        layer.offset = (x, y);
         let after = layer.bounds();
         LayerGeometry::Done(region_from_bounds(before.union(after)))
     }
@@ -3736,6 +3744,48 @@ mod tests {
     }
 
     #[test]
+    fn merge_admission_counts_masks_and_effect_sources_released_by_both_layers() {
+        let pixels = Arc::new(RgbaImage::from_pixel(1024, 1024, Rgba([20, 40, 60, 255])));
+        for retain_effect in [false, true] {
+            let template = DocumentContent::single_layer("Base".into(), RgbaImage::new(1, 1))
+                .layers[0]
+                .clone();
+            let layers = (0..126)
+                .map(|index| RasterLayer {
+                    id: LayerId(index),
+                    pixels: pixels.clone(),
+                    visible: index < 2,
+                    offset: if index == 1 { (2048, 0) } else { (0, 0) },
+                    mask: (index < 2 && !retain_effect).then(|| LayerMask {
+                        pixels: pixels.clone(),
+                        enabled: true,
+                    }),
+                    effect: (index < 2 && retain_effect).then(|| {
+                        super::super::layer_effect::EditableEffect {
+                            spec: super::super::layer_effect::EffectSpec::Adjustment(
+                                crate::adjustments::Adjustment::Invert,
+                            ),
+                            source: pixels.clone(),
+                            coverage: None,
+                            alpha_locked: false,
+                        }
+                    }),
+                    ..template.clone()
+                })
+                .collect();
+            let mut content = DocumentContent::from_layers(3072, 1024, layers).unwrap();
+            assert_eq!(content.stack_bytes(), MAX_STACK_BYTES);
+            content.set_offset(LayerId(1), (4096, 0));
+            assert!(!content.can_merge_down(LayerId(1)));
+            content.set_offset(LayerId(1), (2048, 0));
+            assert_eq!(content.merge_down(LayerId(1)), Some(LayerId(0)));
+            assert_eq!(content.stack_bytes(), 508 * 1024 * 1024);
+            assert!(content.layers[0].mask.is_none());
+            assert!(content.layers[0].effect.is_none());
+        }
+    }
+
+    #[test]
     fn merge_down_preserves_the_composite_over_the_union() {
         let mut content = DocumentContent::single_layer(
             "Base".into(),
@@ -4019,6 +4069,53 @@ mod tests {
         );
         content.set_visible(id, false);
         assert_eq!(content.set_offset(id, (-1, 0)), Dirty::Unpainted);
+    }
+
+    #[test]
+    fn content_crop_checks_offsets_before_changing_pixels_masks_or_effects() {
+        let mut content = DocumentContent::single_layer(
+            "Image".into(),
+            RgbaImage::from_fn(3, 3, |x, y| {
+                if x == 2 && y == 2 {
+                    Rgba([20, 40, 60, 255])
+                } else {
+                    Rgba([0; 4])
+                }
+            }),
+        );
+        let id = content.top_layer_id();
+        content.mask_from_selection(id, &Selection::Unrestricted);
+        content.apply_retained_effect(
+            id,
+            super::super::layer_effect::EffectSpec::Adjustment(
+                crate::adjustments::Adjustment::Invert,
+            ),
+            &Selection::Unrestricted,
+            false,
+        );
+        for origin in [(i32::MAX, 0), (0, i32::MAX)] {
+            content.set_offset(id, origin);
+            let before = content.layers[0].clone();
+            assert!(matches!(
+                content.crop_layer_to_content(id),
+                LayerGeometry::Unchanged
+            ));
+            let after = &content.layers[0];
+            assert_eq!(after.offset, origin);
+            assert!(Arc::ptr_eq(&before.pixels, &after.pixels));
+            assert!(before.mask == after.mask);
+            assert!(Arc::ptr_eq(
+                &before.effect.as_ref().unwrap().source,
+                &after.effect.as_ref().unwrap().source,
+            ));
+        }
+        content.set_offset(id, (i32::MAX - 2, i32::MAX - 2));
+        assert!(matches!(
+            content.crop_layer_to_content(id),
+            LayerGeometry::Done(_)
+        ));
+        assert_eq!(content.layers[0].offset, (i32::MAX, i32::MAX));
+        assert_eq!(content.layers[0].pixels.dimensions(), (1, 1));
     }
 
     #[test]

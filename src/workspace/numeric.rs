@@ -301,7 +301,12 @@ struct NumericGeometry {
 
 pub(super) enum NumericFollowup {
     Key(Keystroke),
+    Save(super::files::SaveMode),
     Export,
+    LayerCommand {
+        layer: crate::document::LayerId,
+        command: super::layers::LayerCommand,
+    },
     TextOperation {
         along_path: bool,
         layer: crate::document::LayerId,
@@ -353,7 +358,8 @@ impl PendingNumeric {
             && !tab.busy()
             && generation.checked_add(u64::from(published)) == Some(tab.history.generation())
             && match &self.followup {
-                NumericFollowup::FitLayer { layer } => tab.active_layer == *layer,
+                NumericFollowup::FitLayer { layer }
+                | NumericFollowup::LayerCommand { layer, .. } => tab.active_layer == *layer,
                 _ => true,
             }
     }
@@ -1026,6 +1032,19 @@ impl Workspace {
                             this.export_form(window, cx);
                             None
                         }
+                        NumericFollowup::Save(mode) => {
+                            this.save(mode, window, cx);
+                            None
+                        }
+                        NumericFollowup::LayerCommand { layer, command } => {
+                            if this
+                                .active_tab()
+                                .is_some_and(|tab| tab.active_layer == layer)
+                            {
+                                this.run_layer_command(command, window, cx);
+                            }
+                            None
+                        }
                         NumericFollowup::FitLayer { layer } => {
                             if this
                                 .active_tab()
@@ -1543,6 +1562,60 @@ mod tests {
     }
 
     #[test]
+    fn menu_layer_command_waits_for_selection_and_rejects_a_different_layer() {
+        let mut tab = super::super::tests::opacity_tab();
+        let id = tab.id;
+        let generation = tab.history.generation();
+        let pending = PendingNumeric {
+            tab: id,
+            generation,
+            followup: NumericFollowup::LayerCommand {
+                layer: tab.active_layer,
+                command: super::super::layers::LayerCommand::MaskFromSelection,
+            },
+        };
+        let mut state = tab.state();
+        state.selection = Selection::rectangle((0, 0), (0, 0), 2, 2);
+        let patch = crate::document::RenderedCanvas::prepare_patch(
+            &tab.document.canvas.pixels,
+            tab.document.canvas.preview.has_transparency,
+            tab.document.canvas.level_caches(),
+            &state.content,
+            crate::preview::Dirty::Unpainted,
+        )
+        .unwrap();
+        tab.editing = true;
+        assert!(!pending.accepts_completion(&tab, id, generation, true));
+        assert!(
+            tab.publish_change(
+                generation,
+                super::super::Change::Selection,
+                Some((state.content, state.active_layer, state.selection, patch)),
+                1
+            )
+            .0
+        );
+        assert!(pending.accepts_completion(&tab, id, generation, true));
+        tab.document
+            .content
+            .mask_from_selection(tab.active_layer, &tab.selection);
+        let mask = &tab
+            .document
+            .content
+            .layer(tab.active_layer)
+            .unwrap()
+            .mask
+            .as_ref()
+            .unwrap()
+            .pixels;
+        assert_eq!(mask.get_pixel(0, 0)[3], 255);
+        assert_eq!(mask.get_pixel(1, 1)[3], 0);
+        assert!(!tab.history.is_dirty());
+        tab.active_layer = crate::document::LayerId(999);
+        assert!(!pending.accepts_completion(&tab, id, generation, true));
+    }
+
+    #[test]
     fn export_waits_for_a_geometry_commit_and_preserves_its_saved_revision() {
         let mut tab = super::super::tests::opacity_tab();
         let id = tab.id;
@@ -1551,6 +1624,11 @@ mod tests {
             tab: id,
             generation,
             followup: NumericFollowup::Export,
+        };
+        let save_pending = PendingNumeric {
+            tab: id,
+            generation,
+            followup: NumericFollowup::Save(super::super::files::SaveMode::Current),
         };
         let mut state = tab.state();
         let pixels = state
@@ -1573,6 +1651,7 @@ mod tests {
         .unwrap();
         tab.editing = true;
         assert!(!pending.accepts_completion(&tab, id, generation, true));
+        assert!(!save_pending.accepts_completion(&tab, id, generation, true));
         assert!(
             tab.publish_change(
                 generation,
@@ -1583,6 +1662,7 @@ mod tests {
             .0
         );
         assert!(pending.accepts_completion(&tab, id, generation, true));
+        assert!(save_pending.accepts_completion(&tab, id, generation, true));
         assert_eq!(
             tab.document.content.layer(tab.active_layer).unwrap().offset,
             (1, 0)
